@@ -8,7 +8,7 @@ openai>=1.6.1,<2.0.0
 
 crewai==0.1.15
 crewai-tools==0.1.6
-langchain<0.0.355 and >=0.0.354
+langchain>=0.0.354
 langchain-openai==0.0.2
 
 # Vector Database & RAG
