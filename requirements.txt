@@ -5,6 +5,9 @@ python-multipart==0.0.6
 
 # AI and ML (simplified for initial deployment)
 openai>=1.6.1,<2.0.0
+
+crewai==0.1.15
+crewai-tools==0.1.6
 langchain==0.0.340
 langchain-openai==0.0.2
 
@@ -25,7 +28,7 @@ numpy==1.25.2
 requests==2.31.0
 httpx==0.25.2
 
-# Geospatial (simplified)
+# Geospatial
 geopy==2.4.0
 
 # Frontend & Real-time
