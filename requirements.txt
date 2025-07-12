@@ -3,19 +3,19 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
-# AI and ML (updated for better compatibility)
-openai>=1.6.1,<2.0.0
-crewai>=0.1.15,<1.0.0
-crewai-tools>=0.1.6,<1.0.0
-langchain>=0.0.354,<1.0.0
-langchain-openai>=0.0.2,<1.0.0
+# AI and ML
+openai==1.95.1              # Latest <2.0.0 :contentReference[oaicite:0]{index=0}
+crewai==0.141.0             # Latest <1.0.0 :contentReference[oaicite:1]{index=1}
+crewai-tools==0.51.1        # Latest <1.0.0 :contentReference[oaicite:2]{index=2}
+langchain==0.3.26           # Latest <1.0.0 :contentReference[oaicite:3]{index=3}
+langchain-openai==0.3.27    # Latest <1.0.0 :contentReference[oaicite:4]{index=4}
 
-# Vector Database & RAG (updated versions)
-chromadb>=0.5.0,<1.0.0
-langchain-chroma>=0.2.0,<1.0.0
+# Vector Database & RAG
+chromadb==0.5.23            # Latest <1.0.0 :contentReference[oaicite:5]{index=5}
+langchain-chroma==0.2.4     # Latest <1.0.0 :contentReference[oaicite:6]{index=6}
 sentence-transformers==2.2.2
 faiss-cpu==1.7.4
-tiktoken>=0.5.1,<1.0.0
+tiktoken==0.9.0             # Latest <1.0.0 :contentReference[oaicite:7]{index=7}
 
 # Database
 psycopg2-binary==2.9.9
@@ -30,16 +30,16 @@ httpx==0.25.2
 # Geospatial
 geopy==2.4.0
 
-# Frontend & Real-time (updated streamlit-elements)
+# Frontend & Real-time
 streamlit==1.28.1
 plotly==5.17.0
 streamlit-autorefresh==0.0.1
-streamlit-elements>=0.1.0,<1.0.0
+streamlit-elements==0.1.0    # Pin to 0.1.0 :contentReference[oaicite:8]{index=8}
 websockets==12.0
 
 # Utilities
 python-dotenv==1.0.0
-pydantic>=2.5.0,<3.0.0
+pydantic==2.11.7             # Latest <3.0.0 :contentReference[oaicite:9]{index=9}
 
 # Development
 pytest==7.4.3
