@@ -4,7 +4,7 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
 # AI and ML (simplified for initial deployment)
-openai==1.3.6
+openai>=1.6.1,<2.0.0
 langchain==0.0.340
 langchain-openai==0.0.2
 
