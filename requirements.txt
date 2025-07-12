@@ -1,45 +1,44 @@
-# FastAPI and server
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
+# FastAPI and server - Updated to latest stable versions
+fastapi==0.115.7
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
 
-# AI and ML
-openai==1.95.1
-crewai==0.141.0
-crewai-tools==0.51.1
-langchain==0.3.26
-langchain-openai==0.3.27
+# AI and ML - Optimized for compatibility
+openai>=1.6.1,<2.0.0
+crewai>=0.80.0,<1.0.0
+langchain>=0.3.0,<0.4.0
+langchain-openai>=0.2.0,<1.0.0
+langchain-community>=0.3.0,<1.0.0
 
-# Vector Database & RAG
-chromadb==0.5.23
-langchain-chroma==0.2.4
-sentence-transformers==2.2.2
-faiss-cpu==1.7.4
-tiktoken==0.9.0
+# Vector Database & RAG - Compatible versions
+chromadb>=0.5.20,<1.0.0
+langchain-chroma>=0.2.0,<1.0.0
+sentence-transformers>=2.7.0,<3.0.0
+faiss-cpu>=1.8.0,<2.0.0
+tiktoken>=0.8.0,<1.0.0
 
-# Database
-psycopg2-binary==2.9.9
-sqlalchemy==2.0.23
+# Database - Updated versions
+psycopg2-binary>=2.9.9,<3.0.0
+sqlalchemy>=2.0.23,<3.0.0
 
-# Data Processing
-pandas==2.1.3
-numpy==1.25.2
-requests==2.31.0
+# Data Processing - Updated but stable
+pandas>=2.2.0,<3.0.0
+numpy>=1.26.0,<2.0.0
+requests>=2.32.0,<3.0.0
 httpx>=0.27.0,<1.0.0
 
 # Geospatial
-geopy==2.4.0
+geopy>=2.4.0,<3.0.0
 
-# Frontend & Real-time
-streamlit==1.28.1
-plotly==5.17.0
-streamlit-autorefresh==0.0.1
-streamlit-elements==0.1.0
-websockets==12.0
+# Frontend & Real-time - Updated versions
+streamlit>=1.39.0,<2.0.0
+plotly>=5.24.0,<6.0.0
+streamlit-autorefresh>=1.0.0,<2.0.0
+websockets>=13.0,<14.0
 
-# Utilities
-python-dotenv==1.0.0
-pydantic==2.11.7
+# Utilities - Pydantic 2 compatible
+python-dotenv>=1.0.0,<2.0.0
+pydantic>=2.7.0,<3.0.0
 
 # Development
-pytest==7.4.3
+pytest>=8.0.0,<9.0.0
