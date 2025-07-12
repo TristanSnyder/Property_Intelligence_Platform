@@ -4,19 +4,32 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies required for Python packages
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    build-essential \
+    python3-dev \
+    libffi-dev \
+    libssl-dev \
+    sqlite3 \
+    libsqlite3-dev \
+    pkg-config \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install build tools
+RUN pip install --no-cache-dir --upgrade pip wheel setuptools
 
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with error handling and retries
+RUN pip install --no-cache-dir \
+    --timeout 600 \
+    --retries 3 \
+    -r requirements.txt
 
 # Copy application code
 COPY . .
