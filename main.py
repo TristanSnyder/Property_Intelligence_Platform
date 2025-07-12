@@ -96,7 +96,7 @@ async def root():
         </head>
         <body>
             <div class="container">
-                <h1>🏠 Property Intelligence AI Platform v2.0</h1>
+                <h1>Property Intelligence AI Platform v2.0</h1>
                 <p>Advanced Agentic AI with RAG + Vector Database Integration</p>
                 
                 <div class="status">
@@ -161,7 +161,7 @@ async def read_root():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>🏠 Property Intelligence AI</title>
+        <title>Property Intelligence AI</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
@@ -191,7 +191,7 @@ async def read_root():
     </head>
     <body>
         <div class="container">
-            <h1>🏠 Property Intelligence AI Platform</h1>
+            <h1>Property Intelligence AI Platform</h1>
             <div class="status">🤖 Agentic AI System - Fully Operational</div>
             
             <div class="card">
