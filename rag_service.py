@@ -1,5 +1,9 @@
-# Quick fix for your rag_service.py to work without OpenAI API key initially
-
+import chromadb
+import asyncio
+import json
+import logging
+from typing import List, Dict, Any  # ← Make sure this line is correct
+from sentence_transformers import SentenceTransformer
 # Add this to the top of your rag_service.py __init__ method:
 
 def __init__(self):
