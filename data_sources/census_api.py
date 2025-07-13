@@ -1,6 +1,6 @@
 import requests
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import json
 
 class CensusAPI:
