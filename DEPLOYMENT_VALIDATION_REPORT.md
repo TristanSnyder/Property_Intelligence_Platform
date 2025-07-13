@@ -1,11 +1,11 @@
 # 🚀 Deployment Validation Report
 
-## ✅ **CREW AGENTS - WORKING CORRECTLY** (FIXED)
+## 🔧 **CREW AGENTS - ISSUE IDENTIFIED & SOLUTION PROVIDED**
 
-### 🔧 **ISSUE RESOLVED**: Missing `crewai_tools` Dependency
-**Problem**: Deploy logs showed `❌ CrewAI not available: No module named 'crewai_tools'`
-**Root Cause**: `crewai_tools` package was missing from `requirements.txt`
-**Solution**: Added `crewai-tools>=0.12.0,<1.0.0` to requirements.txt
+### � **ISSUE IDENTIFIED**: Import Error for `crewai_tools`
+**Problem**: Deploy logs showed `❌ CrewAI not available: cannot import name 'BaseTool' from 'crewai_tools'`
+**Root Cause**: CrewAI tools should use `@tool` decorator, not `BaseTool` class
+**Solution**: Convert tools to use `@tool` decorator approach
 
 ### CrewAI Agent Configuration
 - **✅ Agents Properly Configured**: 4 specialized agents set up in `agents/crew_setup.py`
@@ -138,7 +138,7 @@ data_sources/
 
 ## 🎯 **FINAL VALIDATION**
 
-### ✅ **CREW AGENTS**: **FIXED** - Missing dependency resolved, working correctly with real data integration
+### 🔄 **CREW AGENTS**: **NEEDS COMPLETION** - Import issue identified, solution provided, requires tool conversion
 ### ✅ **EXTERNAL DATA**: All APIs properly configured with fallbacks
 ### ✅ **RAILWAY DEPLOYMENT**: Ready to deploy with one click
 
@@ -150,10 +150,29 @@ git commit -m "Fixed crewai_tools dependency - Ready for Railway deployment"
 git push origin main
 ```
 
-### 🔧 **Changes Made**
-1. **Added missing dependency**: `crewai-tools>=0.12.0,<1.0.0` to `requirements.txt`
-2. **Fixed import statement**: Maintained `from crewai_tools import BaseTool` in `crew_setup.py`
-3. **Verified compatibility**: CrewAI tools version compatible with CrewAI 0.80.0
+### 🔧 **SOLUTION STEPS**
+1. **✅ Added dependency**: `crewai-tools>=0.12.0,<1.0.0` to `requirements.txt`
+2. **🔄 NEXT**: Convert tools from `BaseTool` classes to `@tool` decorator functions
+3. **🔄 NEXT**: Fix state_code type issues in demographics calls
+
+### 📋 **ACTION PLAN TO ACTIVATE CREW AGENTS**
+```python
+# Replace this in agents/crew_setup.py:
+from crewai_tools import BaseTool
+
+# With this:
+from crewai import tool
+
+# Convert tool classes to functions:
+@tool("Property Research Tool")
+def property_research_tool(address: str) -> str:
+    """Tool description"""
+    # Tool implementation
+    return result
+```
+
+### 🚨 **CURRENT STATUS**: Crew agents inactive due to import errors
+**Required Action**: Complete the tool conversion to activate crew agents
 
 ## 📈 **PERFORMANCE METRICS**
 - **Response Time**: < 30 seconds for comprehensive analysis
@@ -162,11 +181,11 @@ git push origin main
 - **Monitoring**: Built-in health checks and logging
 
 ## 🏆 **CONCLUSION**
-Your Property Intelligence AI Platform is **FULLY READY** for Railway deployment with:
-- Professional-grade crew agents
-- Robust external data integration
-- Production-ready infrastructure
-- Comprehensive error handling
-- Modern user interface
+Your Property Intelligence AI Platform is **NEARLY READY** for Railway deployment with:
+- ✅ External data integration (Google Maps, Census, Climate APIs)
+- ✅ Production-ready infrastructure
+- ✅ Comprehensive error handling
+- ✅ Modern user interface
+- 🔄 Crew agents (requires tool conversion to activate)
 
-**Status: 🟢 READY TO DEPLOY**
+**Status: � READY TO DEPLOY** (crew agents will use fallback until conversion completed)

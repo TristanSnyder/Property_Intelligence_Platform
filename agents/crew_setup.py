@@ -1,6 +1,5 @@
-from crewai import Agent, Task, Crew, Process
-from crewai_tools import BaseTool
-from typing import Type, Any, List
+from crewai import Agent, Task, Crew, Process, tool
+from typing import Type, Any, List, Dict
 from pydantic import BaseModel, Field
 import json
 import asyncio
@@ -12,424 +11,438 @@ from data_sources.openstreetmap_api import OpenStreetMapAPI
 from data_sources.google_maps_api import GoogleMapsAPI
 from data_sources.climate_api import ClimateAPI
 
-# Tool Input Models
-class PropertyDataInput(BaseModel):
-    address: str = Field(..., description="Property address to research")
-
-class MarketDataInput(BaseModel):
-    location: str = Field(..., description="Location for market analysis")
-
 # Enhanced Tools with Real Data
-class PropertyResearchTool(BaseTool):
-    name: str = "Property Research Tool"
-    description: str = "Fetch comprehensive property data using multiple real data sources"
-    args_schema: Type[BaseModel] = PropertyDataInput
+@tool("Property Research Tool")
+def property_research_tool(address: str) -> str:
+    """Fetch comprehensive property data using multiple real data sources"""
+    try:
+        # Initialize APIs
+        google_maps = GoogleMapsAPI()
+        census = CensusAPI()
+        osm = OpenStreetMapAPI()
+        
+        # Get comprehensive location data
+        geocode_result = google_maps.geocode_address(address)
+        
+        if geocode_result.get("coordinates"):
+            lat = geocode_result["coordinates"]["latitude"]
+            lon = geocode_result["coordinates"]["longitude"]
+            
+            # Get area insights from Google Maps
+            area_insights = google_maps.get_area_insights(address)
+            
+            # Get location intelligence from OpenStreetMap
+            location_intel = osm.get_location_intelligence(address)
+            
+            # Get demographics from Census
+            state = geocode_result.get("address_components", {}).get("state", "")
+            state_code = census.get_state_code(state) if state else ""
+            demographics = census.get_location_demographics(address, state_code)
+            
+            # Compile comprehensive property research
+            return f"""
+            COMPREHENSIVE PROPERTY RESEARCH REPORT
+            =====================================
+            
+            LOCATION DETAILS:
+            - Address: {geocode_result.get('address', address)}
+            - Coordinates: {lat}, {lon}
+            - Location Type: {geocode_result.get('location_type', 'N/A')}
+            
+            AREA INSIGHTS (Google Maps):
+            - Area Score: {area_insights.get('area_score', 'N/A')}/10
+            - Restaurants: {area_insights.get('restaurants', 0)} nearby
+            - Schools: {area_insights.get('schools', 0)} nearby
+            - Hospitals: {area_insights.get('hospitals', 0)} nearby
+            - Shopping: {area_insights.get('shopping', 0)} nearby
+            
+            LOCATION INTELLIGENCE (OpenStreetMap):
+            - POI Density: {location_intel.get('poi_density', 'N/A')}
+            - Walkability Score: {location_intel.get('walkability_score', 'N/A')}/10
+            - Transit Accessibility: {location_intel.get('transit_score', 'N/A')}/10
+            - Amenities: {location_intel.get('amenities', 'N/A')}
+            
+            DEMOGRAPHICS (US Census):
+            - Population: {demographics.get('population', 'N/A')}
+            - Median Income: ${demographics.get('median_income', 'N/A')}
+            - Median Home Value: ${demographics.get('median_home_value', 'N/A')}
+            - Education Level: {demographics.get('education_level', 'N/A')}
+            - Employment Rate: {demographics.get('employment_rate', 'N/A')}%
+            
+            DATA SOURCES: Google Maps API, OpenStreetMap, US Census Bureau
+            """
+        else:
+            return f"Unable to geocode address: {address}. Please verify the address."
+            
+    except Exception as e:
+        return f"Error researching property: {str(e)}"
 
-    def _run(self, address: str) -> str:
-        """Research property using real data sources"""
-        try:
-            # Initialize APIs
-            google_maps = GoogleMapsAPI()
-            census = CensusAPI()
-            osm = OpenStreetMapAPI()
+@tool("Market Analysis Tool")
+def market_analysis_tool(location: str) -> str:
+    """Analyze local market conditions using real demographic and economic data"""
+    try:
+        # Initialize APIs
+        google_maps = GoogleMapsAPI()
+        census = CensusAPI()
+        
+        # Get location data
+        geocode_result = google_maps.geocode_address(location)
+        
+                 if geocode_result.get("coordinates"):
+            state = geocode_result.get("address_components", {}).get("state", "")
+            state_code = census.get_state_code(state) if state else ""
+            demographics = census.get_location_demographics(location, state_code)
             
-            # Get comprehensive location data
-            geocode_result = google_maps.geocode_address(address)
+            # Perform market analysis
+            market_strength = _assess_market_strength(demographics)
+            market_trend = _determine_market_trend(demographics)
+            appreciation_potential = _assess_appreciation_potential(demographics)
+            rental_market = _assess_rental_market(demographics)
+            economic_stability = _assess_economic_stability(demographics)
+            price_per_sqft = _estimate_price_per_sqft(demographics)
+            market_position = _determine_market_position(demographics)
+            growth_forecast = _forecast_growth(demographics)
             
-            if geocode_result.get("coordinates"):
-                lat = geocode_result["coordinates"]["latitude"]
-                lon = geocode_result["coordinates"]["longitude"]
-                
-                # Get area insights from Google Maps
-                area_insights = google_maps.get_area_insights(address)
-                
-                # Get location intelligence from OpenStreetMap
-                location_intel = osm.get_location_intelligence(address)
-                
-                # Get demographics from Census
-                state = geocode_result.get("address_components", {}).get("state", "")
-                state_code = census.get_state_code(state) if state else None
-                demographics = census.get_location_demographics(address, state_code)
-                
-                # Compile comprehensive property research
-                research_data = {
-                    "address_analysis": {
-                        "formatted_address": geocode_result.get("address", address),
-                        "coordinates": geocode_result.get("coordinates"),
-                        "location_type": geocode_result.get("location_type", "Approximate"),
-                        "address_components": geocode_result.get("address_components", {})
-                    },
-                    "area_characteristics": {
-                        "walkability_score": location_intel.get("scores", {}).get("walkability", 0),
-                        "transit_score": location_intel.get("scores", {}).get("transit_access", 0),
-                        "lifestyle_score": location_intel.get("scores", {}).get("lifestyle", 0),
-                        "overall_location_score": location_intel.get("scores", {}).get("overall_location", 0)
-                    },
-                    "demographics": demographics,
-                    "nearby_amenities": {
-                        "restaurants": area_insights.get("nearby_amenities", {}).get("restaurants", 0),
-                        "schools": area_insights.get("nearby_amenities", {}).get("schools", 0),
-                        "hospitals": area_insights.get("nearby_amenities", {}).get("hospitals", 0),
-                        "shopping": area_insights.get("nearby_amenities", {}).get("shopping_centers", 0)
-                    },
-                    "location_highlights": location_intel.get("location_highlights", []),
-                    "data_sources": ["Google Maps API", "OpenStreetMap", "US Census Bureau"]
-                }
-                
-                return f"COMPREHENSIVE PROPERTY RESEARCH for {address}:\n\n{json.dumps(research_data, indent=2)}"
+            return f"""
+            COMPREHENSIVE MARKET ANALYSIS
+            ============================
             
-            else:
-                return f"Could not geocode address: {address}. Please verify the address format."
-                
-        except Exception as e:
-            return f"Property research error for {address}: {str(e)}"
+            MARKET OVERVIEW:
+            - Location: {location}
+            - Market Strength: {market_strength}
+            - Current Trend: {market_trend}
+            - Market Position: {market_position}
+            
+            FINANCIAL METRICS:
+            - Estimated Price/SqFt: ${price_per_sqft}
+            - Median Home Value: ${demographics.get('median_home_value', 'N/A')}
+            - Median Rent: ${demographics.get('median_rent', 'N/A')}
+            - Income-to-Housing Ratio: {demographics.get('income_to_housing_ratio', 'N/A')}
+            
+            INVESTMENT ANALYSIS:
+            - Appreciation Potential: {appreciation_potential}
+            - Rental Market: {rental_market}
+            - Economic Stability: {economic_stability}
+            - Growth Forecast: {growth_forecast}
+            
+            DEMOGRAPHICS:
+            - Population: {demographics.get('population', 'N/A')}
+            - Median Income: ${demographics.get('median_income', 'N/A')}
+            - Employment Rate: {demographics.get('employment_rate', 'N/A')}%
+            - Education Level: {demographics.get('education_level', 'N/A')}
+            
+            DATA SOURCES: US Census Bureau, Google Maps API
+            """
+        else:
+            return f"Unable to analyze market for location: {location}. Please verify the location."
+            
+    except Exception as e:
+        return f"Error analyzing market: {str(e)}"
 
-class MarketAnalysisTool(BaseTool):
-    name: str = "Market Analysis Tool"
-    description: str = "Analyze local market conditions using real demographic and economic data"
-    args_schema: Type[BaseModel] = MarketDataInput
+@tool("Risk Assessment Tool")
+def risk_assessment_tool(address: str) -> str:
+    """Evaluate comprehensive investment risks using real environmental and market data"""
+    try:
+        # Initialize APIs
+        google_maps = GoogleMapsAPI()
+        census = CensusAPI()
+        climate_api = ClimateAPI()
+        
+        # Get location data
+        geocode_result = google_maps.geocode_address(address)
+        
+        if geocode_result.get("coordinates"):
+            lat = geocode_result["coordinates"]["latitude"]
+            lon = geocode_result["coordinates"]["longitude"]
+            
+            # Get climate risks
+            climate_risks = climate_api.get_climate_risk_assessment(lat, lon, address)
+            
+            # Get demographics for economic analysis
+            state = geocode_result.get("address_components", {}).get("state", "")
+            state_code = census.get_state_code(state) if state else None
+            demographics = census.get_location_demographics(address, state_code)
+            
+            # Calculate risk assessments
+            overall_risk_grade = _calculate_overall_risk_grade(climate_risks, demographics)
+            investment_risk_level = _determine_investment_risk_level(climate_risks, demographics)
+            economic_volatility = _assess_economic_volatility(demographics)
+            market_liquidity = _assess_market_liquidity(demographics)
+            demographic_stability = _assess_demographic_stability(demographics)
+            tax_risk = _assess_tax_risk(demographics)
+            maintenance_risk = _assess_maintenance_risk(climate_risks)
+            insurance_risk = _assess_insurance_risk(climate_risks)
+            mitigation_strategies = _generate_mitigation_strategies(climate_risks, demographics)
+            
+            return f"""
+            COMPREHENSIVE RISK ASSESSMENT
+            ============================
+            
+            OVERALL RISK PROFILE:
+            - Risk Grade: {overall_risk_grade}
+            - Investment Risk Level: {investment_risk_level}
+            - Location: {address}
+            
+            CLIMATE & ENVIRONMENTAL RISKS:
+            - Overall Climate Risk: {climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('level', 'N/A')}
+            - Flood Risk: {climate_risks.get('climate_risks', {}).get('flood_risk', {}).get('level', 'N/A')}
+            - Temperature Risk: {climate_risks.get('climate_risks', {}).get('temperature_extremes', {}).get('level', 'N/A')}
+            - Precipitation Risk: {climate_risks.get('climate_risks', {}).get('precipitation_changes', {}).get('level', 'N/A')}
+            
+            FINANCIAL RISKS:
+            - Economic Volatility: {economic_volatility.get('level', 'N/A')}
+            - Market Liquidity: {market_liquidity.get('level', 'N/A')}
+            - Tax Risk: {tax_risk.get('level', 'N/A')}
+            
+            OPERATIONAL RISKS:
+            - Maintenance Risk: {maintenance_risk.get('level', 'N/A')}
+            - Insurance Risk: {insurance_risk.get('level', 'N/A')}
+            - Demographic Stability: {demographic_stability.get('level', 'N/A')}
+            
+            MITIGATION STRATEGIES:
+            {chr(10).join(f"• {strategy}" for strategy in mitigation_strategies)}
+            
+            DATA SOURCES: Climate APIs, US Census Bureau, Google Maps API
+            """
+        else:
+            return f"Unable to assess risks for address: {address}. Please verify the address."
+            
+    except Exception as e:
+        return f"Error assessing risks: {str(e)}"
 
-    def _run(self, location: str) -> str:
-        """Analyze market using real data sources"""
-        try:
-            # Initialize APIs
-            census = CensusAPI()
-            google_maps = GoogleMapsAPI()
-            
-            # Get location details
-            geocode_result = google_maps.geocode_address(location)
-            
-            if geocode_result.get("coordinates"):
-                # Extract state for census data
-                state = geocode_result.get("address_components", {}).get("state", "")
-                state_code = census.get_state_code(state) if state else None
-                
-                # Get demographic and economic data
-                demographics = census.get_location_demographics(location, state_code)
-                
-                # Analyze market conditions based on real data
-                market_analysis = {
-                    "location_summary": {
-                        "analyzed_location": geocode_result.get("address", location),
-                        "market_type": demographics.get("population", {}).get("density_category", "Unknown"),
-                        "economic_tier": demographics.get("economics", {}).get("income_category", "Unknown")
-                    },
-                    "demographic_indicators": {
-                        "population": demographics.get("population", {}).get("total", 0),
-                        "median_household_income": demographics.get("economics", {}).get("median_household_income", 0),
-                        "education_level": demographics.get("education", {}).get("bachelor_plus_rate", 0),
-                        "homeownership_rate": demographics.get("housing", {}).get("homeownership_rate", 0)
-                    },
-                    "housing_market": {
-                        "median_home_value": demographics.get("housing", {}).get("median_home_value", 0),
-                        "median_rent": demographics.get("housing", {}).get("median_rent", 0),
-                        "housing_units": demographics.get("housing", {}).get("total_units", 0),
-                        "market_strength": self._assess_market_strength(demographics)
-                    },
-                    "investment_indicators": {
-                        "market_trend": self._determine_market_trend(demographics),
-                        "appreciation_potential": self._assess_appreciation_potential(demographics),
-                        "rental_market": self._assess_rental_market(demographics),
-                        "economic_stability": self._assess_economic_stability(demographics)
-                    },
-                    "comparable_analysis": {
-                        "price_per_sqft_estimate": self._estimate_price_per_sqft(demographics),
-                        "market_position": self._determine_market_position(demographics),
-                        "growth_forecast": self._forecast_growth(demographics)
-                    },
-                    "data_sources": ["US Census Bureau", "Google Maps API"]
-                }
-                
-                return f"MARKET ANALYSIS for {location}:\n\n{json.dumps(market_analysis, indent=2)}"
-            
-            else:
-                return f"Could not analyze market for: {location}. Please verify the location."
-                
-        except Exception as e:
-            return f"Market analysis error for {location}: {str(e)}"
+# Helper functions for market analysis
+def _assess_market_strength(demographics: Dict[str, Any]) -> str:
+    """Assess market strength based on demographics"""
+    median_income = demographics.get('median_income', 0)
+    employment_rate = demographics.get('employment_rate', 0)
+    population = demographics.get('population', 0)
     
-    def _assess_market_strength(self, demographics: Dict[str, Any]) -> str:
-        """Assess market strength based on demographics"""
-        income = demographics.get("economics", {}).get("median_household_income", 0)
-        home_value = demographics.get("housing", {}).get("median_home_value", 0)
-        education = demographics.get("education", {}).get("bachelor_plus_rate", 0)
-        
-        score = 0
-        if income > 75000: score += 1
-        if home_value > 300000: score += 1
-        if education > 35: score += 1
-        
-        if score >= 3: return "Strong"
-        elif score >= 2: return "Moderate"
-        else: return "Developing"
-    
-    def _determine_market_trend(self, demographics: Dict[str, Any]) -> str:
-        """Determine market trend based on indicators"""
-        education = demographics.get("education", {}).get("bachelor_plus_rate", 0)
-        income = demographics.get("economics", {}).get("median_household_income", 0)
-        
-        if education > 40 and income > 70000:
-            return "Rising"
-        elif education > 25 and income > 50000:
-            return "Stable"
-        else:
-            return "Variable"
-    
-    def _assess_appreciation_potential(self, demographics: Dict[str, Any]) -> str:
-        """Assess property appreciation potential"""
-        income_cat = demographics.get("economics", {}).get("income_category", "")
-        education_level = demographics.get("education", {}).get("education_level", "")
-        
-        if "High" in income_cat and "Highly" in education_level:
-            return "High (6-8% annually)"
-        elif "Upper" in income_cat or "Well" in education_level:
-            return "Moderate (4-6% annually)"
-        else:
-            return "Conservative (2-4% annually)"
-    
-    def _assess_rental_market(self, demographics: Dict[str, Any]) -> str:
-        """Assess rental market conditions"""
-        homeownership = demographics.get("housing", {}).get("homeownership_rate", 0)
-        
-        if homeownership < 50:
-            return "Strong rental demand"
-        elif homeownership < 70:
-            return "Moderate rental market"
-        else:
-            return "Owner-dominated market"
-    
-    def _assess_economic_stability(self, demographics: Dict[str, Any]) -> str:
-        """Assess economic stability"""
-        income = demographics.get("economics", {}).get("median_household_income", 0)
-        education = demographics.get("education", {}).get("bachelor_plus_rate", 0)
-        
-        if income > 60000 and education > 30:
-            return "High stability"
-        elif income > 45000 and education > 20:
-            return "Moderate stability"
-        else:
-            return "Variable stability"
-    
-    def _estimate_price_per_sqft(self, demographics: Dict[str, Any]) -> int:
-        """Estimate price per square foot"""
-        home_value = demographics.get("housing", {}).get("median_home_value", 0)
-        # Rough estimate: median home value / average home size (1800 sqft)
-        return round(home_value / 1800) if home_value > 0 else 200
-    
-    def _determine_market_position(self, demographics: Dict[str, Any]) -> str:
-        """Determine market position"""
-        income_cat = demographics.get("economics", {}).get("income_category", "")
-        
-        if "High" in income_cat:
-            return "Premium market"
-        elif "Upper" in income_cat:
-            return "Upper-mid market"
-        elif "Middle" in income_cat:
-            return "Mid market"
-        else:
-            return "Value market"
-    
-    def _forecast_growth(self, demographics: Dict[str, Any]) -> str:
-        """Forecast market growth"""
-        population = demographics.get("population", {}).get("total", 0)
-        density = demographics.get("population", {}).get("density_category", "")
-        
-        if population > 100000 and "Urban" in density:
-            return "Strong growth expected"
-        elif population > 50000:
-            return "Moderate growth expected"
-        else:
-            return "Stable growth expected"
+    if median_income > 75000 and employment_rate > 95 and population > 10000:
+        return "Very Strong"
+    elif median_income > 50000 and employment_rate > 90:
+        return "Strong"
+    elif median_income > 35000 and employment_rate > 85:
+        return "Moderate"
+    else:
+        return "Weak"
 
-class RiskAssessmentTool(BaseTool):
-    name: str = "Risk Assessment Tool"
-    description: str = "Evaluate comprehensive investment risks using real environmental and market data"
-    args_schema: Type[BaseModel] = PropertyDataInput
+def _determine_market_trend(demographics: Dict[str, Any]) -> str:
+    """Determine market trend based on demographics"""
+    income_growth = demographics.get('income_growth', 0)
+    population_growth = demographics.get('population_growth', 0)
+    
+    if income_growth > 3 and population_growth > 2:
+        return "Strong Growth"
+    elif income_growth > 1 and population_growth > 0:
+        return "Moderate Growth"
+    elif income_growth > -1 and population_growth > -1:
+        return "Stable"
+    else:
+        return "Declining"
 
-    def _run(self, address: str) -> str:
-        """Assess risks using real data sources"""
-        try:
-            # Initialize APIs
-            google_maps = GoogleMapsAPI()
-            climate = ClimateAPI()
-            census = CensusAPI()
-            
-            # Get location coordinates
-            geocode_result = google_maps.geocode_address(address)
-            
-            if geocode_result.get("coordinates"):
-                lat = geocode_result["coordinates"]["latitude"]
-                lon = geocode_result["coordinates"]["longitude"]
-                
-                # Get climate risk assessment
-                climate_risks = climate.get_climate_risk_assessment(lat, lon, address)
-                
-                # Get demographic data for market risk assessment
-                state = geocode_result.get("address_components", {}).get("state", "")
-                state_code = census.get_state_code(state) if state else None
-                demographics = census.get_location_demographics(address, state_code)
-                
-                # Comprehensive risk assessment
-                risk_assessment = {
-                    "overall_risk_summary": {
-                        "address": address,
-                        "risk_grade": self._calculate_overall_risk_grade(climate_risks, demographics),
-                        "investment_risk_level": self._determine_investment_risk_level(climate_risks, demographics)
-                    },
-                    "environmental_risks": {
-                        "climate_risk_score": climate_risks.get("climate_risks", {}).get("overall_climate_risk", {}).get("score", 0),
-                        "flood_risk": climate_risks.get("climate_risks", {}).get("flood_risk", {}),
-                        "temperature_risk": climate_risks.get("climate_risks", {}).get("temperature_extremes", {}),
-                        "precipitation_risk": climate_risks.get("climate_risks", {}).get("precipitation_changes", {})
-                    },
-                    "market_risks": {
-                        "economic_volatility": self._assess_economic_volatility(demographics),
-                        "market_liquidity": self._assess_market_liquidity(demographics),
-                        "demographic_stability": self._assess_demographic_stability(demographics)
-                    },
-                    "financial_risks": {
-                        "property_tax_risk": self._assess_tax_risk(demographics),
-                        "maintenance_cost_risk": self._assess_maintenance_risk(climate_risks),
-                        "insurance_cost_risk": self._assess_insurance_risk(climate_risks)
-                    },
-                    "mitigation_strategies": self._generate_mitigation_strategies(climate_risks, demographics),
-                    "data_sources": ["Climate APIs", "US Census Bureau", "Google Maps"]
-                }
-                
-                return f"COMPREHENSIVE RISK ASSESSMENT for {address}:\n\n{json.dumps(risk_assessment, indent=2)}"
-            
-            else:
-                return f"Could not assess risks for: {address}. Please verify the address."
-                
-        except Exception as e:
-            return f"Risk assessment error for {address}: {str(e)}"
+def _assess_appreciation_potential(demographics: Dict[str, Any]) -> str:
+    """Assess property appreciation potential"""
+    median_income = demographics.get('median_income', 0)
+    education_level = demographics.get('education_level', 0)
     
-    def _calculate_overall_risk_grade(self, climate_risks: Dict, demographics: Dict) -> str:
-        """Calculate overall risk grade"""
-        climate_score = climate_risks.get("climate_risks", {}).get("overall_climate_risk", {}).get("score", 50)
-        
-        # Market risk based on income stability
-        income = demographics.get("economics", {}).get("median_household_income", 50000)
-        market_risk = 30 if income > 75000 else 50 if income > 50000 else 70
-        
-        # Combined risk score
-        overall_score = (climate_score + market_risk) / 2
-        
-        if overall_score >= 70: return "High Risk (C-D)"
-        elif overall_score >= 40: return "Moderate Risk (B)"
-        else: return "Low Risk (A)"
-    
-    def _determine_investment_risk_level(self, climate_risks: Dict, demographics: Dict) -> str:
-        """Determine investment risk level"""
-        climate_level = climate_risks.get("climate_risks", {}).get("overall_climate_risk", {}).get("level", "Moderate")
-        income_cat = demographics.get("economics", {}).get("income_category", "Middle Income")
-        
-        if climate_level == "High" or "Lower" in income_cat:
-            return "Higher Risk Investment"
-        elif climate_level == "Moderate" and "Middle" in income_cat:
-            return "Moderate Risk Investment"
-        else:
-            return "Lower Risk Investment"
-    
-    def _assess_economic_volatility(self, demographics: Dict) -> Dict[str, Any]:
-        """Assess economic volatility risk"""
-        income = demographics.get("economics", {}).get("median_household_income", 0)
-        education = demographics.get("education", {}).get("bachelor_plus_rate", 0)
-        
-        if income > 75000 and education > 40:
-            return {"score": 20, "level": "Low", "description": "Stable, educated workforce"}
-        elif income > 50000 and education > 25:
-            return {"score": 35, "level": "Moderate", "description": "Generally stable economy"}
-        else:
-            return {"score": 55, "level": "Higher", "description": "Economic volatility possible"}
-    
-    def _assess_market_liquidity(self, demographics: Dict) -> Dict[str, Any]:
-        """Assess market liquidity risk"""
-        population = demographics.get("population", {}).get("total", 0)
-        density = demographics.get("population", {}).get("density_category", "")
-        
-        if population > 100000 and "Urban" in density:
-            return {"score": 15, "level": "Low", "description": "High liquidity market"}
-        elif population > 50000:
-            return {"score": 30, "level": "Moderate", "description": "Moderate liquidity"}
-        else:
-            return {"score": 50, "level": "Higher", "description": "Limited market liquidity"}
-    
-    def _assess_demographic_stability(self, demographics: Dict) -> Dict[str, Any]:
-        """Assess demographic stability"""
-        education = demographics.get("education", {}).get("bachelor_plus_rate", 0)
-        homeownership = demographics.get("housing", {}).get("homeownership_rate", 0)
-        
-        if education > 35 and homeownership > 60:
-            return {"score": 18, "level": "Low", "description": "Stable, educated community"}
-        elif education > 25 and homeownership > 50:
-            return {"score": 32, "level": "Moderate", "description": "Generally stable demographics"}
-        else:
-            return {"score": 48, "level": "Higher", "description": "Demographic changes possible"}
-    
-    def _assess_tax_risk(self, demographics: Dict) -> Dict[str, Any]:
-        """Assess property tax risk"""
-        home_value = demographics.get("housing", {}).get("median_home_value", 0)
-        
-        if home_value > 500000:
-            return {"score": 45, "level": "Higher", "description": "High-value area, tax increase risk"}
-        elif home_value > 300000:
-            return {"score": 30, "level": "Moderate", "description": "Moderate tax risk"}
-        else:
-            return {"score": 20, "level": "Low", "description": "Lower tax burden area"}
-    
-    def _assess_maintenance_risk(self, climate_risks: Dict) -> Dict[str, Any]:
-        """Assess maintenance cost risk based on climate"""
-        climate_score = climate_risks.get("climate_risks", {}).get("overall_climate_risk", {}).get("score", 25)
-        
-        if climate_score > 50:
-            return {"score": 45, "level": "Higher", "description": "Climate-related maintenance costs"}
-        elif climate_score > 30:
-            return {"score": 30, "level": "Moderate", "description": "Standard maintenance expected"}
-        else:
-            return {"score": 20, "level": "Low", "description": "Favorable climate conditions"}
-    
-    def _assess_insurance_risk(self, climate_risks: Dict) -> Dict[str, Any]:
-        """Assess insurance cost risk"""
-        flood_score = climate_risks.get("climate_risks", {}).get("flood_risk", {}).get("score", 25)
-        
-        if flood_score > 40:
-            return {"score": 50, "level": "Higher", "description": "Flood insurance may be required"}
-        elif flood_score > 25:
-            return {"score": 30, "level": "Moderate", "description": "Standard insurance rates"}
-        else:
-            return {"score": 20, "level": "Low", "description": "Lower insurance risk area"}
-    
-    def _generate_mitigation_strategies(self, climate_risks: Dict, demographics: Dict) -> List[str]:
-        """Generate risk mitigation strategies"""
-        strategies = []
-        
-        # Climate-based strategies
-        climate_recommendations = climate_risks.get("recommendations", [])
-        strategies.extend(climate_recommendations)
-        
-        # Market-based strategies
-        income_cat = demographics.get("economics", {}).get("income_category", "")
-        if "Lower" in income_cat:
-            strategies.append("💰 Consider long-term financing options")
-            strategies.append("📊 Monitor local economic development")
-        
-        # Location-based strategies
-        population = demographics.get("population", {}).get("total", 0)
-        if population < 50000:
-            strategies.append("🏘️ Diversify within broader regional market")
-        
-        return strategies
+    if median_income > 70000 and education_level > 80:
+        return "High - Strong economic fundamentals"
+    elif median_income > 50000 and education_level > 60:
+        return "Moderate - Stable growth expected"
+    else:
+        return "Low - Limited appreciation expected"
 
-# Enhanced PropertyAnalysisCrew with real data integration
+def _assess_rental_market(demographics: Dict[str, Any]) -> str:
+    """Assess rental market conditions"""
+    median_rent = demographics.get('median_rent', 0)
+    rental_vacancy = demographics.get('rental_vacancy', 10)
+    
+    if median_rent > 1500 and rental_vacancy < 5:
+        return "Strong - High demand, low vacancy"
+    elif median_rent > 1000 and rental_vacancy < 8:
+        return "Moderate - Balanced market"
+    else:
+        return "Weak - High vacancy or low rents"
+
+def _assess_economic_stability(demographics: Dict[str, Any]) -> str:
+    """Assess economic stability"""
+    employment_rate = demographics.get('employment_rate', 0)
+    industry_diversity = demographics.get('industry_diversity', 50)
+    
+    if employment_rate > 95 and industry_diversity > 70:
+        return "Very Stable"
+    elif employment_rate > 90 and industry_diversity > 50:
+        return "Stable"
+    else:
+        return "Moderate Risk"
+
+def _estimate_price_per_sqft(demographics: Dict[str, Any]) -> int:
+    """Estimate price per square foot"""
+    median_home_value = demographics.get('median_home_value', 200000)
+    median_income = demographics.get('median_income', 50000)
+    
+    # Simple estimation based on median values
+    base_price = median_home_value / 2000  # Assume 2000 sqft average
+    income_multiplier = min(median_income / 50000, 2.0)
+    
+    return int(base_price * income_multiplier)
+
+def _determine_market_position(demographics: Dict[str, Any]) -> str:
+    """Determine market position"""
+    median_home_value = demographics.get('median_home_value', 200000)
+    
+    if median_home_value > 500000:
+        return "Premium Market"
+    elif median_home_value > 300000:
+        return "Mid-Range Market"
+    else:
+        return "Affordable Market"
+
+def _forecast_growth(demographics: Dict[str, Any]) -> str:
+    """Forecast market growth"""
+    population_growth = demographics.get('population_growth', 0)
+    income_growth = demographics.get('income_growth', 0)
+    
+    if population_growth > 2 and income_growth > 3:
+        return "Strong Growth Expected (5-7% annually)"
+    elif population_growth > 1 and income_growth > 1:
+        return "Moderate Growth Expected (3-5% annually)"
+    else:
+        return "Stable Growth Expected (1-3% annually)"
+
+# Helper functions for risk assessment
+def _calculate_overall_risk_grade(climate_risks: Dict, demographics: Dict) -> str:
+    """Calculate overall risk grade"""
+    climate_score = climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('score', 5)
+    economic_stability = demographics.get('employment_rate', 90)
+    
+    if climate_score < 3 and economic_stability > 95:
+        return "A (Low Risk)"
+    elif climate_score < 5 and economic_stability > 90:
+        return "B (Moderate Risk)"
+    elif climate_score < 7 and economic_stability > 85:
+        return "C (Medium Risk)"
+    else:
+        return "D (High Risk)"
+
+def _determine_investment_risk_level(climate_risks: Dict, demographics: Dict) -> str:
+    """Determine investment risk level"""
+    climate_score = climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('score', 5)
+    median_income = demographics.get('median_income', 50000)
+    
+    if climate_score < 4 and median_income > 60000:
+        return "Low Risk"
+    elif climate_score < 6 and median_income > 40000:
+        return "Moderate Risk"
+    else:
+        return "High Risk"
+
+def _assess_economic_volatility(demographics: Dict) -> Dict[str, Any]:
+    """Assess economic volatility"""
+    employment_rate = demographics.get('employment_rate', 90)
+    industry_diversity = demographics.get('industry_diversity', 50)
+    
+    if employment_rate > 95 and industry_diversity > 70:
+        return {"level": "Low", "description": "Stable employment and diverse economy"}
+    elif employment_rate > 90:
+        return {"level": "Moderate", "description": "Generally stable with some volatility"}
+    else:
+        return {"level": "High", "description": "Economic instability concerns"}
+
+def _assess_market_liquidity(demographics: Dict) -> Dict[str, Any]:
+    """Assess market liquidity"""
+    population = demographics.get('population', 10000)
+    median_home_value = demographics.get('median_home_value', 200000)
+    
+    if population > 50000 and median_home_value < 400000:
+        return {"level": "High", "description": "Large market with accessible prices"}
+    elif population > 20000:
+        return {"level": "Moderate", "description": "Moderate market size"}
+    else:
+        return {"level": "Low", "description": "Small market, limited liquidity"}
+
+def _assess_demographic_stability(demographics: Dict) -> Dict[str, Any]:
+    """Assess demographic stability"""
+    population_growth = demographics.get('population_growth', 0)
+    age_median = demographics.get('age_median', 35)
+    
+    if population_growth > 1 and 25 < age_median < 45:
+        return {"level": "Stable", "description": "Growing population with working-age residents"}
+    elif population_growth > -1:
+        return {"level": "Moderate", "description": "Stable population"}
+    else:
+        return {"level": "Declining", "description": "Population decline concerns"}
+
+def _assess_tax_risk(demographics: Dict) -> Dict[str, Any]:
+    """Assess tax risk"""
+    # Simplified tax risk assessment
+    median_home_value = demographics.get('median_home_value', 200000)
+    
+    if median_home_value > 500000:
+        return {"level": "High", "description": "High property values may indicate high property taxes"}
+    elif median_home_value > 300000:
+        return {"level": "Moderate", "description": "Moderate property tax burden expected"}
+    else:
+        return {"level": "Low", "description": "Lower property tax burden expected"}
+
+def _assess_maintenance_risk(climate_risks: Dict) -> Dict[str, Any]:
+    """Assess maintenance risk based on climate"""
+    climate_score = climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('score', 5)
+    
+    if climate_score > 7:
+        return {"level": "High", "description": "High climate risk increases maintenance needs"}
+    elif climate_score > 4:
+        return {"level": "Moderate", "description": "Moderate climate-related maintenance expected"}
+    else:
+        return {"level": "Low", "description": "Low climate-related maintenance risk"}
+
+def _assess_insurance_risk(climate_risks: Dict) -> Dict[str, Any]:
+    """Assess insurance risk"""
+    flood_risk = climate_risks.get('climate_risks', {}).get('flood_risk', {}).get('score', 5)
+    
+    if flood_risk > 7:
+        return {"level": "High", "description": "High flood risk may increase insurance costs"}
+    elif flood_risk > 4:
+        return {"level": "Moderate", "description": "Moderate insurance risk"}
+    else:
+        return {"level": "Low", "description": "Low insurance risk"}
+
+def _generate_mitigation_strategies(climate_risks: Dict, demographics: Dict) -> List[str]:
+    """Generate risk mitigation strategies"""
+    strategies = []
+    
+    # Climate-based strategies
+    climate_score = climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('score', 5)
+    if climate_score > 6:
+        strategies.append("Consider climate-resilient building materials and designs")
+        strategies.append("Evaluate flood insurance and emergency preparedness")
+    
+    # Economic-based strategies
+    employment_rate = demographics.get('employment_rate', 90)
+    if employment_rate < 90:
+        strategies.append("Diversify investment portfolio to reduce regional economic risk")
+        strategies.append("Consider shorter-term investment horizons")
+    
+    # Market-based strategies
+    median_home_value = demographics.get('median_home_value', 200000)
+    if median_home_value > 500000:
+        strategies.append("Monitor market cycles closely due to high property values")
+        strategies.append("Consider rental income to offset carrying costs")
+    
+    if not strategies:
+        strategies.append("Maintain regular property inspections and maintenance")
+        strategies.append("Stay informed about local market conditions")
+    
+    return strategies
+
 class PropertyAnalysisCrew:
     def __init__(self):
-        # Initialize tools with real data sources
-        self.property_tool = PropertyResearchTool()
-        self.market_tool = MarketAnalysisTool()
-        self.risk_tool = RiskAssessmentTool()
+        # Initialize tools
+        self.property_tool = property_research_tool
+        self.market_tool = market_analysis_tool
+        self.risk_tool = risk_assessment_tool
         
-        # Define agents (same as before but now using real data)
+        # Define agents (using function-based tools)
         self.property_researcher = Agent(
             role="Senior Property Research Specialist",
             goal="Gather comprehensive and accurate property data from multiple real data sources",
@@ -488,95 +501,76 @@ class PropertyAnalysisCrew:
         )
 
     def create_analysis_tasks(self, property_address: str) -> List[Task]:
-        """Create enhanced analysis tasks using real data"""
+        """Create analysis tasks for the property"""
         
-        # Task 1: Property Research with Real Data
         research_task = Task(
             description=f"""
             Conduct comprehensive property research for: {property_address}
             
-            Use real data sources to gather:
-            1. Precise geocoding and address verification using Google Maps API
-            2. Neighborhood walkability, transit, and lifestyle scores from OpenStreetMap
-            3. Demographic analysis using US Census Bureau data including:
-               - Population characteristics and density
-               - Median household income and economic indicators
-               - Education levels and employment data
-               - Housing market characteristics
-            4. Nearby amenities analysis including restaurants, schools, healthcare, shopping
-            5. Location highlights and area characteristics
+            Use the Property Research Tool to gather:
+            1. Precise location details and coordinates
+            2. Area insights from Google Maps (restaurants, schools, hospitals, shopping)
+            3. Location intelligence from OpenStreetMap (walkability, transit, amenities)
+            4. Demographic data from US Census Bureau
             
-            Provide detailed, factual information with data sources clearly identified.
-            Focus on accuracy using real-world data rather than estimates.
+            Provide a detailed research report with all findings and data sources.
             """,
-            agent=self.property_researcher,
-            expected_output="Comprehensive property research report with verified real data from multiple sources"
+            expected_output="A comprehensive property research report with location details, area insights, and demographic data",
+            agent=self.property_researcher
         )
         
-        # Task 2: Market Analysis with Real Demographics
         market_task = Task(
             description=f"""
-            Analyze the real estate market conditions using actual demographic and economic data.
-            Use the property research findings as context for your analysis.
+            Perform comprehensive market analysis for: {property_address}
             
-            Your analysis should include:
-            1. Market strength assessment based on real income and education data
-            2. Housing market analysis using actual median home values and rental rates
-            3. Investment indicators derived from real demographic trends
-            4. Market positioning based on actual economic characteristics
-            5. Growth forecasts using population and economic data
-            6. Appreciation potential based on area education and income levels
+            Use the Market Analysis Tool to analyze:
+            1. Current market strength and trends
+            2. Financial metrics (price per sqft, median values, rent prices)
+            3. Investment potential and appreciation forecasts
+            4. Economic stability and growth prospects
             
-            Base all analysis on real data from Census Bureau and other verified sources.
-            Provide specific numbers and trends rather than general estimates.
+            Base your analysis on real demographic and economic data.
             """,
-            agent=self.market_analyst,
-            expected_output="Market analysis report based on real demographic and economic data with specific metrics",
-            context=[research_task]
+            expected_output="A detailed market analysis report with investment recommendations",
+            agent=self.market_analyst
         )
         
-        # Task 3: Risk Assessment with Real Environmental Data
         risk_task = Task(
             description=f"""
-            Conduct comprehensive risk assessment using real environmental and market data.
-            Consider both the property research and market analysis findings.
+            Conduct comprehensive risk assessment for: {property_address}
             
-            Use real data sources to evaluate:
-            1. Environmental risks using actual climate data and weather patterns
-            2. Flood risk assessment based on geographic location
-            3. Market risks using real demographic stability indicators
-            4. Economic volatility based on actual income and employment data
-            5. Insurance and maintenance risks based on climate conditions
+            Use the Risk Assessment Tool to evaluate:
+            1. Climate and environmental risks (flood, temperature, precipitation)
+            2. Financial risks (economic volatility, market liquidity, tax risks)
+            3. Operational risks (maintenance, insurance, demographic stability)
+            4. Mitigation strategies and recommendations
             
-            Provide specific risk scores and practical mitigation strategies based on real data.
-            Calculate overall risk grades using factual information rather than estimates.
+            Provide an overall risk grade and specific mitigation strategies.
             """,
-            agent=self.risk_assessor,
-            expected_output="Risk assessment with specific scores and mitigation strategies based on real environmental and market data",
-            context=[research_task, market_task]
+            expected_output="A comprehensive risk assessment with risk grades and mitigation strategies",
+            agent=self.risk_assessor
         )
         
-        # Task 4: Executive Report with Real Data Synthesis
         report_task = Task(
             description=f"""
-            Create a comprehensive executive investment report for: {property_address}
+            Create an executive investment report for: {property_address}
             
-            Synthesize all real data findings into a professional report with:
+            Synthesize the findings from:
+            1. Property research analysis
+            2. Market analysis insights
+            3. Risk assessment results
             
-            1. **Executive Summary** (3-4 key insights and clear recommendation)
-            2. **Property Intelligence** (real data from Google Maps, OpenStreetMap, Census)
-            3. **Market Analysis** (actual demographics, income, education, housing data)
-            4. **Risk Assessment** (real environmental and market risk scores)
-            5. **Investment Recommendation** (Buy/Hold/Pass with specific rationale)
-            6. **Action Items** (next steps based on real data insights)
+            Create a professional executive summary with:
+            - Investment recommendation (Buy/Hold/Avoid)
+            - Key findings and insights
+            - Risk assessment summary
+            - Specific action items
+            - Data sources and methodology
             
-            Base all recommendations on the actual data collected from verified sources.
-            Include specific numbers, percentages, and data points throughout.
-            Make the report professional and suitable for executive decision-making.
+            The report should be suitable for executive decision-making.
             """,
-            agent=self.report_generator,
-            expected_output="Executive-level property investment report with clear recommendations based on comprehensive real data analysis",
-            context=[research_task, market_task, risk_task]
+            expected_output="A professional executive investment report with clear recommendations",
+            agent=self.report_generator
         )
         
         return [research_task, market_task, risk_task, report_task]
