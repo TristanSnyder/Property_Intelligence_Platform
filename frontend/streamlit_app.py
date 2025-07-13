@@ -16,6 +16,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize session state
+if 'analysis_started' not in st.session_state:
+    st.session_state.analysis_started = False
+if 'analysis_id' not in st.session_state:
+    st.session_state.analysis_id = None
+if 'show_results' not in st.session_state:
+    st.session_state.show_results = False
+if 'analysis_results' not in st.session_state:
+    st.session_state.analysis_results = None
+
 # Custom CSS for modern styling
 st.markdown("""
 <style>
@@ -187,9 +197,9 @@ with col1:
             
             if response.status_code == 200:
                 result = response.json()
-                st.session_state.session_id = result.get("session_id")
+                st.session_state.analysis_id = result.get("analysis_id")
                 st.session_state.analysis_started = True
-                st.success(f"✅ Analysis started! Session ID: {st.session_state.session_id}")
+                st.success(f"✅ Analysis started! Analysis ID: {st.session_state.analysis_id}")
             else:
                 st.error(f"❌ Error starting analysis: {response.status_code}")
                 
@@ -197,12 +207,12 @@ with col1:
             st.error(f"❌ Connection error: {str(e)}")
     
     # Real-time Agent Status
-    if st.session_state.analysis_started and st.session_state.session_id:
+    if st.session_state.analysis_started and st.session_state.analysis_id:
         st.markdown("### 🤖 AI Agents Status")
         
         try:
             # Get agent status
-            agent_response = requests.get(f"{api_url}/agents/status", timeout=5)
+            agent_response = requests.get(f"{api_url}/agent-status/{st.session_state.analysis_id}", timeout=5)
             if agent_response.status_code == 200:
                 agent_data = agent_response.json()
                 agents = agent_data.get("agents", {})
@@ -250,8 +260,63 @@ with col1:
                     if st.button("📊 View Results"):
                         st.session_state.show_results = True
                         
+                        # Get analysis results
+                        try:
+                            results_response = requests.get(f"{api_url}/analysis-results/{st.session_state.analysis_id}", timeout=10)
+                            if results_response.status_code == 200:
+                                results_data = results_response.json()
+                                st.session_state.analysis_results = results_data
+                            else:
+                                st.error("Failed to fetch analysis results")
+                        except Exception as e:
+                            st.error(f"Error fetching results: {str(e)}")
+                        
         except Exception as e:
             st.error(f"❌ Error fetching agent status: {str(e)}")
+
+    # Display Analysis Results
+    if st.session_state.get("show_results") and st.session_state.get("analysis_results"):
+        st.markdown("### 📊 Analysis Results")
+        
+        results = st.session_state.analysis_results
+        formatted_result = results.get("formatted_result", {}) if results else {}
+        
+        if formatted_result:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric(
+                    "💰 Estimated Value",
+                    f"${formatted_result.get('estimated_value', 0):,}",
+                    delta=None
+                )
+            
+            with col2:
+                st.metric(
+                    "📈 Market Trend",
+                    formatted_result.get('market_trend', 'N/A'),
+                    delta=None
+                )
+            
+            with col3:
+                st.metric(
+                    "⚠️ Risk Score",
+                    f"{formatted_result.get('risk_score', 0)}/100",
+                    delta=None
+                )
+            
+            # Key Insights
+            if formatted_result.get('key_insights'):
+                st.markdown("**🔍 Key Insights:**")
+                for insight in formatted_result['key_insights']:
+                    st.markdown(f"- {insight}")
+            
+            # Additional info
+            if formatted_result.get('note'):
+                st.info(formatted_result['note'])
+        
+        else:
+            st.info("Analysis results are being processed...")
 
 with col2:
     st.markdown("### 📊 System Overview")
