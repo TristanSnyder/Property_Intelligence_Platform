@@ -25,6 +25,8 @@ if 'show_results' not in st.session_state:
     st.session_state.show_results = False
 if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = None
+if 'results_fetched' not in st.session_state:
+    st.session_state.results_fetched = False
 
 # Custom CSS for modern styling
 st.markdown("""
@@ -199,6 +201,9 @@ with col1:
                 result = response.json()
                 st.session_state.analysis_id = result.get("analysis_id")
                 st.session_state.analysis_started = True
+                # Reset previous results
+                st.session_state.results_fetched = False
+                st.session_state.analysis_results = None
                 st.success(f"✅ Analysis started! Analysis ID: {st.session_state.analysis_id}")
             else:
                 st.error(f"❌ Error starting analysis: {response.status_code}")
@@ -236,70 +241,12 @@ with col1:
                     </div>
                     """, unsafe_allow_html=True)
                     
-
-                    # Property Analysis Results
-                    st.markdown("### 📊 Property Analysis Results")
-                    # Progress bar
-                    if progress > 0:
-                        st.progress(progress / 100)
-
-                    
                     # Recent logs
                     logs = agent_info.get("logs", [])
                     if logs:
                         with st.expander(f"Recent logs for {name}"):
                             for log in logs[-3:]:  # Show last 3 logs
                                 st.text(log)
-                    
-
-                    # Market Context
-                    st.markdown("### 🏘️ Market Context")
-                    market_col1, market_col2 = st.columns(2)
-                    with market_col1:
-                        st.metric("Market Trend", "Rising", "+5.2% YoY")
-                        st.metric("Days on Market", "28 days", "-12 days")
-                    with market_col2:
-                        st.metric("Price per Sq Ft", "$285", "+$18")
-                        st.metric("Neighborhood Grade", "A-", "Excellent")
-                    
-                    # Key Insights Section
-                    st.markdown("### 💡 Key Insights")
-                    
-                    # Investment Potential
-                    st.markdown("#### 🎯 Investment Potential")
-                    st.success("**Strong Investment Opportunity** - Property shows above-average appreciation potential with low risk factors")
-                    
-                    # Market Analysis
-                    st.markdown("#### 📈 Market Analysis")
-                    st.info("**Favorable Market Conditions** - Local market experiencing steady growth with 5.2% annual appreciation")
-                    
-                    # Location Benefits
-                    st.markdown("#### 🏫 Location Benefits")
-                    st.info("**Prime Location Factors** - Excellent school district (9/10 rating), low crime rate, and strong transportation access")
-                    
-                    # Risk Assessment
-                    st.markdown("#### ⚠️ Risk Assessment")
-                    st.success("**Low Risk Profile** - Stable neighborhood with consistent property values and low foreclosure rates")
-                    
-                    # Financial Projections
-                    st.markdown("#### 💰 Financial Projections")
-                    fin_col1, fin_col2 = st.columns(2)
-                    with fin_col1:
-                        st.metric("5-Year ROI", "18.5%", "+2.3%")
-                        st.metric("Cash Flow", "$280/month", "Positive")
-                    with fin_col2:
-                        st.metric("Cap Rate", "6.2%", "Above Average")
-                        st.metric("Break-even", "12 months", "Fast")
-                    
-                    # Recommendations
-                    st.markdown("### 📋 Recommendations")
-                    st.markdown("""
-                    **Recommended Actions:**
-                    - ✅ **Proceed with Purchase** - Property meets investment criteria
-                    - 📋 **Negotiate 3-5% below asking** - Market conditions favorable for buyers
-                    - 🔍 **Schedule Professional Inspection** - Verify structural integrity
-                    - 💼 **Consider Rental Income** - Strong rental market in this area
-                    """)
 
 with col2:
     st.markdown("### 📈 Quick Stats")
@@ -316,39 +263,52 @@ with col2:
 
                     st.markdown("---")
                 
-                # Check if analysis is complete
+                # Check if analysis is complete and auto-fetch results
                 all_completed = all(
                     agent.get("status") == "completed" 
                     for agent in agents.values()
                 )
                 
-                if all_completed:
+                if all_completed and not st.session_state.get("results_fetched"):
                     st.success("🎉 Analysis Complete!")
-                    if st.button("📊 View Results"):
-                        st.session_state.show_results = True
-                        
-                        # Get analysis results
-                        try:
-                            results_response = requests.get(f"{api_url}/analysis-results/{st.session_state.analysis_id}", timeout=10)
-                            if results_response.status_code == 200:
-                                results_data = results_response.json()
-                                st.session_state.analysis_results = results_data
-                            else:
-                                st.error("Failed to fetch analysis results")
-                        except Exception as e:
-                            st.error(f"Error fetching results: {str(e)}")
-                        
+                    st.info("📊 Fetching analysis results...")
+                    
+                    # Automatically get analysis results
+                    try:
+                        results_response = requests.get(f"{api_url}/analysis-results/{st.session_state.analysis_id}", timeout=10)
+                        if results_response.status_code == 200:
+                            results_data = results_response.json()
+                            st.session_state.analysis_results = results_data
+                            st.session_state.results_fetched = True
+                            st.rerun()
+                        else:
+                            st.error("Failed to fetch analysis results")
+                    except Exception as e:
+                        st.error(f"Error fetching results: {str(e)}")
+                
+                # Display live analysis progress and partial results
+                if any(agent.get("status") == "running" for agent in agents.values()):
+                    st.markdown("### 📊 Analysis in Progress...")
+                    
+                    # Show progress for each agent
+                    for agent_id, agent_info in agents.items():
+                        if agent_info.get("status") == "running":
+                            progress = agent_info.get("progress", 0)
+                            if progress > 0:
+                                st.progress(progress / 100, text=f"{agent_info.get('name', 'Agent')} - {progress}%")
+                
         except Exception as e:
             st.error(f"❌ Error fetching agent status: {str(e)}")
 
-    # Display Analysis Results
-    if st.session_state.get("show_results") and st.session_state.get("analysis_results"):
+    # Display Analysis Results - Enhanced with API data
+    if st.session_state.get("analysis_results"):
         st.markdown("### 📊 Analysis Results")
         
         results = st.session_state.analysis_results
         formatted_result = results.get("formatted_result", {}) if results else {}
         
         if formatted_result:
+            # Main metrics
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -372,18 +332,35 @@ with col2:
                     delta=None
                 )
             
-            # Key Insights
+            # Market Context from API data
+            st.markdown("### 🏘️ Market Context")
+            market_col1, market_col2 = st.columns(2)
+            
+            with market_col1:
+                st.metric("Market Trend", formatted_result.get('market_trend', 'N/A'))
+                st.metric("Investment Grade", formatted_result.get('investment_grade', 'N/A'))
+            
+            with market_col2:
+                st.metric("Risk Assessment", f"{formatted_result.get('risk_score', 0)}/100")
+                st.metric("Data Sources", len(formatted_result.get('data_sources', [])))
+            
+            # Key Insights from API
+            st.markdown("### � Key Insights")
             if formatted_result.get('key_insights'):
-                st.markdown("**🔍 Key Insights:**")
                 for insight in formatted_result['key_insights']:
                     st.markdown(f"- {insight}")
+            else:
+                st.info("Key insights are being generated by the AI agents...")
             
-            # Additional info
+            # Additional analysis details
             if formatted_result.get('note'):
                 st.info(formatted_result['note'])
         
         else:
             st.info("Analysis results are being processed...")
+    
+    elif st.session_state.analysis_started:
+        st.info("🤖 AI agents are analyzing the property. Results will appear here automatically when complete.")
 
 with col2:
     st.markdown("### 📊 System Overview")
