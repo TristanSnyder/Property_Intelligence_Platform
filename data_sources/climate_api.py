@@ -1,6 +1,6 @@
 import requests
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 class ClimateAPI:
     """
