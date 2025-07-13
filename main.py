@@ -363,7 +363,7 @@ async def web_interface():
             </div>
         </div>
 
-        <script>
+            <script>
             // Property Analysis Form Handler
             document.getElementById('propertyAnalysisForm').addEventListener('submit', async function(e) {{
                 e.preventDefault();
@@ -395,8 +395,8 @@ async def web_interface():
                     // Hide loading
                     document.getElementById('loadingSection').style.display = 'none';
                     
-                    // Show results
-                    document.getElementById('resultsContent').textContent = JSON.stringify(result, null, 2);
+                    // Show formatted results
+                    document.getElementById('resultsContent').innerHTML = formatAnalysisResults(result);
                     document.getElementById('resultsSection').style.display = 'block';
                     
                 }} catch (error) {{
@@ -408,7 +408,7 @@ async def web_interface():
                 }}
             }});
 
-            // RAG Search Form Handler
+            // RAG Search Form Handler with Better Formatting
             document.getElementById('ragSearchForm').addEventListener('submit', async function(e) {{
                 e.preventDefault();
                 
@@ -419,16 +419,126 @@ async def web_interface():
                     const response = await fetch(`/search-properties?query=${{encodeURIComponent(query)}}`);
                     const result = await response.json();
                     
-                    document.getElementById('ragResultsContent').textContent = JSON.stringify(result, null, 2);
+                    // Format and display results nicely
+                    document.getElementById('ragResultsContent').innerHTML = formatSearchResults(result);
                     document.getElementById('ragResultsSection').style.display = 'block';
                     
                 }} catch (error) {{
-                    document.getElementById('ragResultsContent').textContent = 'Error: ' + error.message;
+                    document.getElementById('ragResultsContent').innerHTML = `<div style="color: #f44336;">Error: ${{error.message}}</div>`;
                     document.getElementById('ragResultsSection').style.display = 'block';
                 }} finally {{
                     document.getElementById('searchBtn').disabled = false;
                 }}
             }});
+
+            // Format search results for better display
+            function formatSearchResults(data) {{
+                if (!data.results || data.results.length === 0) {{
+                    return '<div style="color: #FFA500;">No results found for your search.</div>';
+                }}
+                
+                let html = `
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                        <h5 style="color: #FFD700; margin: 0 0 10px 0;">🔍 Search: "${{data.query}}"</h5>
+                        <p style="margin: 0; opacity: 0.8;">Found ${{data.total_found}} results using ${{data.search_method}}</p>
+                    </div>
+                `;
+                
+                data.results.forEach((property, index) => {{
+                    const price = property.price ? `$${{property.price.toLocaleString()}}` : 'Price TBD';
+                    const beds = property.bedrooms || 'N/A';
+                    const baths = property.bathrooms || 'N/A';
+                    const sqft = property.sqft ? `${{property.sqft.toLocaleString()}} sqft` : 'N/A';
+                    const score = property.match_score ? `${{(property.match_score * 100).toFixed(1)}}%` : property.similarity_score || 'N/A';
+                    
+                    html += `
+                        <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                            <div style="display: flex; justify-content: between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <h6 style="color: #FFD700; margin: 0 0 8px 0;">🏠 ${{property.address || property.content || `Property ${{index + 1}}`}}</h6>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; font-size: 14px;">
+                                        <div><strong>💰 Price:</strong> ${{price}}</div>
+                                        <div><strong>🛏️ Beds:</strong> ${{beds}}</div>
+                                        <div><strong>🚿 Baths:</strong> ${{baths}}</div>
+                                        <div><strong>📐 Size:</strong> ${{sqft}}</div>
+                                    </div>
+                                </div>
+                                <div style="text-align: right; margin-left: 15px;">
+                                    <div style="background: #4CAF50; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                        Match: ${{score}}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }});
+                
+                if (data.note) {{
+                    html += `<div style="background: rgba(255, 165, 0, 0.2); padding: 10px; border-radius: 6px; margin-top: 15px; font-size: 14px; color: #FFA500;">
+                        💡 ${{data.note}}
+                    </div>`;
+                }}
+                
+                return html;
+            }}
+
+            // Format analysis results
+            function formatAnalysisResults(data) {{
+                if (!data.result) {{
+                    return `<div style="color: #f44336;">No analysis results available</div>`;
+                }}
+                
+                const result = data.result;
+                let html = `
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                        <h5 style="color: #FFD700; margin: 0 0 10px 0;">🏠 Analysis for: ${{data.address}}</h5>
+                        <p style="margin: 0; opacity: 0.8;">Status: ${{data.status}} | Agents: ${{data.agents_deployed.join(', ')}}</p>
+                    </div>
+                `;
+                
+                if (result.estimated_value) {{
+                    html += `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                            <div style="background: rgba(76, 175, 80, 0.2); padding: 15px; border-radius: 8px;">
+                                <h6 style="color: #4CAF50; margin: 0 0 5px 0;">💰 Estimated Value</h6>
+                                <div style="font-size: 20px; font-weight: bold;">${{result.estimated_value.toLocaleString()}}</div>
+                            </div>
+                            <div style="background: rgba(33, 150, 243, 0.2); padding: 15px; border-radius: 8px;">
+                                <h6 style="color: #2196F3; margin: 0 0 5px 0;">📊 Market Trend</h6>
+                                <div style="font-size: 16px; font-weight: bold;">${{result.market_trend}}</div>
+                            </div>
+                            <div style="background: rgba(255, 193, 7, 0.2); padding: 15px; border-radius: 8px;">
+                                <h6 style="color: #FFC107; margin: 0 0 5px 0;">⚠️ Risk Score</h6>
+                                <div style="font-size: 18px; font-weight: bold;">${{result.risk_score}}/100</div>
+                            </div>
+                            <div style="background: rgba(156, 39, 176, 0.2); padding: 15px; border-radius: 8px;">
+                                <h6 style="color: #9C27B0; margin: 0 0 5px 0;">🏆 Grade</h6>
+                                <div style="font-size: 18px; font-weight: bold;">${{result.investment_grade}}</div>
+                            </div>
+                        </div>
+                    `;
+                }}
+                
+                if (result.key_insights && result.key_insights.length > 0) {{
+                    html += `
+                        <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <h6 style="color: #FFD700; margin: 0 0 10px 0;">💡 Key Insights</h6>
+                            <ul style="margin: 0; padding-left: 20px;">
+                    `;
+                    result.key_insights.forEach(insight => {{
+                        html += `<li style="margin-bottom: 5px;">${{insight}}</li>`;
+                    }});
+                    html += `</ul></div>`;
+                }}
+                
+                if (result.note) {{
+                    html += `<div style="background: rgba(255, 165, 0, 0.2); padding: 10px; border-radius: 6px; margin-top: 15px; font-size: 14px; color: #FFA500;">
+                        💡 ${{result.note}}
+                    </div>`;
+                }}
+                
+                return html;
+            }}
 
             // Load Demo Function
             function loadDemo() {{
