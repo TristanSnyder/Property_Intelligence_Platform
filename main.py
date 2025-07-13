@@ -298,6 +298,7 @@ async def web_interface():
                     </div>
                     <button type="submit" class="btn" id="analyzeBtn">🚀 Analyze Property</button>
                     <button type="button" class="btn" onclick="loadDemo()">📊 Load Demo</button>
+                    <button type="button" class="btn" onclick="runDemoAnalysis()">🎯 Run Demo Analysis</button>
                 </form>
                 
                 <div class="loading" id="loadingSection">
@@ -484,15 +485,39 @@ async def web_interface():
 
             // Format analysis results
             function formatAnalysisResults(data) {{
-                if (!data.result) {{
+                // Handle both demo_analysis and regular result structures
+                let result, address, status, agents_deployed;
+                
+                if (data.demo_analysis) {{
+                    // Demo endpoint structure
+                    const demo = data.demo_analysis;
+                    address = demo.address;
+                    status = demo.status;
+                    agents_deployed = ["Senior Property Research Specialist", "Senior Market Intelligence Analyst", "Risk Management Specialist", "Executive Investment Report Writer"];
+                    
+                    // Map demo structure to expected format
+                    const agentResults = demo.ai_agents_results;
+                    result = {{
+                        estimated_value: agentResults.property_researcher?.estimated_value,
+                        market_trend: agentResults.market_analyst?.market_trend,
+                        risk_score: agentResults.risk_assessor?.overall_risk_score,
+                        investment_grade: agentResults.risk_assessor?.risk_grade,
+                        key_insights: agentResults.report_generator?.key_insights || []
+                    }};
+                }} else if (data.result) {{
+                    // Regular analysis structure
+                    result = data.result;
+                    address = data.address;
+                    status = data.status;
+                    agents_deployed = data.agents_deployed || [];
+                }} else {{
                     return `<div style="color: #f44336;">No analysis results available</div>`;
                 }}
                 
-                const result = data.result;
                 let html = `
                     <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-                        <h5 style="color: #FFD700; margin: 0 0 10px 0;">🏠 Analysis for: ${{data.address}}</h5>
-                        <p style="margin: 0; opacity: 0.8;">Status: ${{data.status}} | Agents: ${{data.agents_deployed.join(', ')}}</p>
+                        <h5 style="color: #FFD700; margin: 0 0 10px 0;">🏠 Analysis for: ${{address}}</h5>
+                        <p style="margin: 0; opacity: 0.8;">Status: ${{status}} | Agents: ${{agents_deployed.join(', ')}}</p>
                     </div>
                 `;
                 
@@ -505,7 +530,7 @@ async def web_interface():
                             </div>
                             <div style="background: rgba(33, 150, 243, 0.2); padding: 15px; border-radius: 8px;">
                                 <h6 style="color: #2196F3; margin: 0 0 5px 0;">📊 Market Trend</h6>
-                                <div style="font-size: 16px; font-weight: bold;">${{result.market_trend}}</div>
+                                <div style="font-size: 16px; font-weight: bold;">${{result.market_trend || 'N/A'}}</div>
                             </div>
                             <div style="background: rgba(255, 193, 7, 0.2); padding: 15px; border-radius: 8px;">
                                 <h6 style="color: #FFC107; margin: 0 0 5px 0;">⚠️ Risk Score</h6>
@@ -513,7 +538,7 @@ async def web_interface():
                             </div>
                             <div style="background: rgba(156, 39, 176, 0.2); padding: 15px; border-radius: 8px;">
                                 <h6 style="color: #9C27B0; margin: 0 0 5px 0;">🏆 Grade</h6>
-                                <div style="font-size: 18px; font-weight: bold;">${{result.investment_grade}}</div>
+                                <div style="font-size: 18px; font-weight: bold;">${{result.investment_grade || 'N/A'}}</div>
                             </div>
                         </div>
                     `;
@@ -531,6 +556,78 @@ async def web_interface():
                     html += `</ul></div>`;
                 }}
                 
+                // Add demo-specific details if available
+                if (data.demo_analysis) {{
+                    const demo = data.demo_analysis;
+                    const agentResults = demo.ai_agents_results;
+                    
+                    // Property Details
+                    if (agentResults.property_researcher) {{
+                        const prop = agentResults.property_researcher;
+                        html += `
+                            <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                <h6 style="color: #FFD700; margin: 0 0 10px 0;">🏠 Property Details</h6>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                                    <div><strong>Bedrooms:</strong> ${{prop.bedrooms}}</div>
+                                    <div><strong>Bathrooms:</strong> ${{prop.bathrooms}}</div>
+                                    <div><strong>Square Feet:</strong> ${{prop.square_feet?.toLocaleString()}}</div>
+                                    <div><strong>Year Built:</strong> ${{prop.year_built}}</div>
+                                    <div><strong>Lot Size:</strong> ${{prop.lot_size}}</div>
+                                    <div><strong>School District:</strong> ${{prop.school_district}}</div>
+                                </div>
+                            </div>
+                        `;
+                    }}
+                    
+                    // Market Analysis Details
+                    if (agentResults.market_analyst) {{
+                        const market = agentResults.market_analyst;
+                        html += `
+                            <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                <h6 style="color: #FFD700; margin: 0 0 10px 0;">📊 Market Analysis</h6>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                                    <div><strong>Days on Market:</strong> ${{market.days_on_market}}</div>
+                                    <div><strong>Price/SqFt:</strong> $$${{market.price_per_sqft}}</div>
+                                    <div><strong>Comparables:</strong> ${{market.comparables_found}}</div>
+                                    <div><strong>Investment Outlook:</strong> ${{market.investment_outlook}}</div>
+                                </div>
+                            </div>
+                        `;
+                    }}
+                    
+                    // Processing Summary
+                    if (demo.processing_summary) {{
+                        const summary = demo.processing_summary;
+                        html += `
+                            <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                <h6 style="color: #FFD700; margin: 0 0 10px 0;">⚡ Processing Summary</h6>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                                    <div><strong>Total Agents:</strong> ${{summary.total_agents}}</div>
+                                    <div><strong>Processing Time:</strong> ${{summary.processing_time}}</div>
+                                    <div><strong>Data Sources:</strong> ${{summary.data_sources}}</div>
+                                    <div><strong>Confidence:</strong> ${{summary.confidence_score}}%</div>
+                                </div>
+                            </div>
+                        `;
+                    }}
+                    
+                    // Investment Recommendation
+                    if (agentResults.report_generator) {{
+                        const report = agentResults.report_generator;
+                        html += `
+                            <div style="background: rgba(76, 175, 80, 0.1); padding: 15px; border-radius: 8px; border: 2px solid rgba(76, 175, 80, 0.3);">
+                                <h6 style="color: #4CAF50; margin: 0 0 10px 0;">🎯 Investment Recommendation</h6>
+                                <div style="font-size: 24px; font-weight: bold; color: #4CAF50; margin-bottom: 10px;">
+                                    ${{report.investment_recommendation}}
+                                </div>
+                                <div style="font-size: 16px; opacity: 0.9;">
+                                    Confidence Level: ${{report.confidence_level}}
+                                </div>
+                            </div>
+                        `;
+                    }}
+                }}
+                
                 if (result.note) {{
                     html += `<div style="background: rgba(255, 165, 0, 0.2); padding: 10px; border-radius: 6px; margin-top: 15px; font-size: 14px; color: #FFA500;">
                         💡 ${{result.note}}
@@ -545,6 +642,30 @@ async def web_interface():
                 document.getElementById('address').value = '123 Main Street, New York, NY 10001';
                 document.getElementById('analysisType').value = 'comprehensive';
                 document.getElementById('context').value = 'Investment analysis for rental property';
+            }}
+            
+            // Run Demo Analysis Function
+            async function runDemoAnalysis() {{
+                // Show loading
+                document.getElementById('loadingSection').style.display = 'block';
+                document.getElementById('resultsSection').style.display = 'none';
+                
+                try {{
+                    const response = await fetch('/demo');
+                    const result = await response.json();
+                    
+                    // Hide loading
+                    document.getElementById('loadingSection').style.display = 'none';
+                    
+                    // Show formatted demo results
+                    document.getElementById('resultsContent').innerHTML = formatAnalysisResults(result);
+                    document.getElementById('resultsSection').style.display = 'block';
+                    
+                }} catch (error) {{
+                    document.getElementById('loadingSection').style.display = 'none';
+                    document.getElementById('resultsContent').textContent = 'Error: ' + error.message;
+                    document.getElementById('resultsSection').style.display = 'block';
+                }}
             }}
         </script>
     </body>
