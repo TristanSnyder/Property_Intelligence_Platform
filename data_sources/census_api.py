@@ -33,7 +33,7 @@ class CensusAPI:
         """Get comprehensive demographics with enhanced fallback data"""
         try:
             if not self.api_key:
-                return self._get_enhanced_fallback_data(address, state_code)
+                raise ValueError("Census API key is required for real data analysis")
             
             # Try to get census data
             demographics = self._fetch_census_data(state_code)

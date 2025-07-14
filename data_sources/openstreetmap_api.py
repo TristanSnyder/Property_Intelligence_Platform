@@ -21,7 +21,7 @@ class OpenStreetMapAPI:
             location = self.geocoder.geocode(address, timeout=10)
             
             if not location:
-                return self._get_mock_location_data(address)
+                raise ValueError(f"Unable to geocode address: {address}")
             
             lat, lon = location.latitude, location.longitude
             
@@ -48,8 +48,7 @@ class OpenStreetMapAPI:
             }
             
         except Exception as e:
-            print(f"OpenStreetMap API error: {str(e)}")
-            return self._get_mock_location_data(address)
+            raise ValueError(f"OpenStreetMap API error: {str(e)}")
     
     def _get_nearby_amenities(self, lat: float, lon: float, radius_km: float = 1.0) -> Dict[str, List[Dict]]:
         """Get nearby amenities using Overpass API"""

@@ -107,7 +107,11 @@ class PropertyResearchTool(BaseTool):
                 return f"Unable to geocode address: {address}. Please verify the address format."
                 
         except Exception as e:
-            return f"Error researching property: {str(e)}"
+            error_msg = str(e)
+            if "API key is required" in error_msg:
+                return f"❌ API Configuration Error: {error_msg}. Please configure API keys for real data analysis."
+            else:
+                return f"❌ Property Research Error: {error_msg}"
 
 class MarketAnalysisTool(BaseTool):
     name: str = "Market Analysis Tool"
@@ -196,7 +200,11 @@ class MarketAnalysisTool(BaseTool):
                 return f"Unable to analyze market for location: {location}. Please verify the location."
                 
         except Exception as e:
-            return f"Error analyzing market: {str(e)}"
+            error_msg = str(e)
+            if "API key is required" in error_msg:
+                return f"❌ API Configuration Error: {error_msg}. Please configure API keys for real data analysis."
+            else:
+                return f"❌ Market Analysis Error: {error_msg}"
 
 class RiskAssessmentTool(BaseTool):
     name: str = "Risk Assessment Tool"
@@ -290,7 +298,11 @@ Well-balanced risk profile suitable for most investment strategies
                 return f"Unable to assess risks for address: {address}. Please verify the address."
                 
         except Exception as e:
-            return f"Error assessing risks: {str(e)}"
+            error_msg = str(e)
+            if "API key is required" in error_msg:
+                return f"❌ API Configuration Error: {error_msg}. Please configure API keys for real data analysis."
+            else:
+                return f"❌ Risk Assessment Error: {error_msg}"
 
 # Keep the rest of PropertyAnalysisCrew class the same...
 class PropertyAnalysisCrew:

@@ -16,7 +16,7 @@ class GoogleMapsAPI:
         """Geocode an address and get detailed location information"""
         try:
             if not self.api_key:
-                return self._get_mock_geocoding(address)
+                raise ValueError("Google Maps API key is required for real data analysis")
             
             # Geocoding API request
             geocode_url = f"{self.base_url}/geocode/json"
@@ -63,7 +63,7 @@ class GoogleMapsAPI:
         """Get nearby places using Google Places API"""
         try:
             if not self.api_key:
-                return self._get_mock_places(place_type)
+                raise ValueError("Google Maps API key is required for real data analysis")
             
             places_url = f"{self.base_url}/place/nearbysearch/json"
             params = {

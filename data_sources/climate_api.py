@@ -56,7 +56,7 @@ class ClimateAPI:
             }
             
         except Exception as e:
-            return self._get_mock_climate_data(address, lat, lon)
+            raise ValueError(f"Climate API error: {str(e)}")
 
     def _get_weather_data(self, lat: float, lon: float) -> Dict[str, Any]:
         """Fetch weather data from Open-Meteo API"""
@@ -85,10 +85,10 @@ class ClimateAPI:
                     "api_success": True
                 }
             else:
-                return self._get_fallback_weather_data()
+                raise ValueError(f"Weather API returned status code: {response.status_code}")
                 
         except Exception as e:
-            return self._get_fallback_weather_data()
+            raise ValueError(f"Weather API error: {str(e)}")
     
     def _get_fallback_weather_data(self) -> Dict[str, Any]:
         """Provide fallback weather data when API fails"""
