@@ -1,4 +1,5 @@
-from crewai import Agent, Task, Crew, Process, tool
+from crewai import Agent, Task, Crew, Process
+from crewai.tools import BaseTool
 from typing import Type, Any, List, Dict
 from pydantic import BaseModel, Field
 import json
@@ -19,47 +20,51 @@ class MarketDataInput(BaseModel):
     location: str = Field(..., description="Location for market analysis")
 
 # Enhanced Tools with Real Data Processing
-@tool("Property Research Tool")
-def property_research_tool(address: str) -> str:
-    """Fetch comprehensive property data using multiple real data sources"""
-    try:
-        # Initialize APIs
-        google_maps = GoogleMapsAPI()
-        census = CensusAPI()
-        osm = OpenStreetMapAPI()
-        
-        # Get comprehensive location data
-        geocode_result = google_maps.geocode_address(address)
-        
-        if geocode_result.get("coordinates"):
-            lat = geocode_result["coordinates"]["latitude"]
-            lon = geocode_result["coordinates"]["longitude"]
+class PropertyResearchTool(BaseTool):
+    name: str = "Property Research Tool"
+    description: str = "Fetch comprehensive property data using multiple real data sources"
+    args_schema: Type[BaseModel] = PropertyDataInput
+
+    def _run(self, address: str) -> str:
+        """Fetch comprehensive property data using multiple real data sources"""
+        try:
+            # Initialize APIs
+            google_maps = GoogleMapsAPI()
+            census = CensusAPI()
+            osm = OpenStreetMapAPI()
             
-            # Get area insights from Google Maps
-            area_insights = google_maps.get_area_insights(address)
+            # Get comprehensive location data
+            geocode_result = google_maps.geocode_address(address)
             
-            # Get location intelligence from OpenStreetMap
-            location_intel = osm.get_location_intelligence(address)
-            
-            # Get demographics from Census
-            state = geocode_result.get("address_components", {}).get("state", "")
-            state_code = census.get_state_code(state) if state else ""
-            demographics = census.get_location_demographics(address, state_code)
-            
-            # PROCESS AND CLEAN THE DATA
-            area_score = min(area_insights.get('area_score', 8), 10)  # Cap at 10
-            population = demographics.get('population', 0)
-            median_income = demographics.get('median_income', 0)
-            median_home_value = demographics.get('median_home_value', 0)
-            employment_rate = demographics.get('employment_rate', 0)
-            education_level = demographics.get('education_level', 0)
-            
-            # Format population with commas
-            pop_formatted = f"{population:,}" if population > 0 else "N/A"
-            income_formatted = f"${median_income:,}" if median_income > 0 else "Data pending"
-            home_value_formatted = f"${median_home_value:,}" if median_home_value > 0 else "Data pending"
-            
-            return f"""
+            if geocode_result.get("coordinates"):
+                lat = geocode_result["coordinates"]["latitude"]
+                lon = geocode_result["coordinates"]["longitude"]
+                
+                # Get area insights from Google Maps
+                area_insights = google_maps.get_area_insights(address)
+                
+                # Get location intelligence from OpenStreetMap
+                location_intel = osm.get_location_intelligence(address)
+                
+                # Get demographics from Census
+                state = geocode_result.get("address_components", {}).get("state", "")
+                state_code = census.get_state_code(state) if state else ""
+                demographics = census.get_location_demographics(address, state_code)
+                
+                # PROCESS AND CLEAN THE DATA
+                area_score = min(area_insights.get('area_score', 8), 10)  # Cap at 10
+                population = demographics.get('population', 0)
+                median_income = demographics.get('median_income', 0)
+                median_home_value = demographics.get('median_home_value', 0)
+                employment_rate = demographics.get('employment_rate', 0)
+                education_level = demographics.get('education_level', 0)
+                
+                # Format population with commas
+                pop_formatted = f"{population:,}" if population > 0 else "N/A"
+                income_formatted = f"${median_income:,}" if median_income > 0 else "Data pending"
+                home_value_formatted = f"${median_home_value:,}" if median_home_value > 0 else "Data pending"
+                
+                return f"""
 🏠 COMPREHENSIVE PROPERTY RESEARCH REPORT
 =========================================
 
@@ -98,59 +103,63 @@ def property_research_tool(address: str) -> str:
 
 📋 DATA SOURCES: Google Maps API, OpenStreetMap, US Census Bureau
 """
-        else:
-            return f"Unable to geocode address: {address}. Please verify the address format."
-            
-    except Exception as e:
-        return f"Error researching property: {str(e)}"
-
-@tool("Market Analysis Tool")
-def market_analysis_tool(location: str) -> str:
-    """Analyze local market conditions using real demographic and economic data"""
-    try:
-        # Initialize APIs
-        census = CensusAPI()
-        google_maps = GoogleMapsAPI()
-        
-        # Get location details
-        geocode_result = google_maps.geocode_address(location)
-        
-        if geocode_result.get("coordinates"):
-            state = geocode_result.get("address_components", {}).get("state", "")
-            state_code = census.get_state_code(state) if state else ""
-            demographics = census.get_location_demographics(location, state_code)
-            
-            # PROCESS THE DATA WITH PROPER HANDLING
-            median_income = demographics.get('median_income', 0)
-            median_home_value = demographics.get('median_home_value', 0)
-            population = demographics.get('population', 0)
-            employment_rate = demographics.get('employment_rate', 0)
-            income_growth = demographics.get('income_growth', 0)
-            population_growth = demographics.get('population_growth', 0)
-            
-            # Calculate market strength
-            if median_income > 75000 and employment_rate > 95:
-                market_strength = "Very Strong"
-                investment_grade = "A+"
-            elif median_income > 50000 and employment_rate > 90:
-                market_strength = "Strong"
-                investment_grade = "A"
-            elif median_income > 35000 and employment_rate > 85:
-                market_strength = "Moderate"
-                investment_grade = "B+"
             else:
-                market_strength = "Developing"
-                investment_grade = "B"
+                return f"Unable to geocode address: {address}. Please verify the address format."
+                
+        except Exception as e:
+            return f"Error researching property: {str(e)}"
+
+class MarketAnalysisTool(BaseTool):
+    name: str = "Market Analysis Tool"
+    description: str = "Analyze local market conditions using real demographic and economic data"
+    args_schema: Type[BaseModel] = MarketDataInput
+
+    def _run(self, location: str) -> str:
+        """Analyze local market conditions using real demographic and economic data"""
+        try:
+            # Initialize APIs
+            census = CensusAPI()
+            google_maps = GoogleMapsAPI()
             
-            # Calculate price per sqft
-            price_per_sqft = round(median_home_value / 1800) if median_home_value > 0 else 200
+            # Get location details
+            geocode_result = google_maps.geocode_address(location)
             
-            # Format currency values
-            income_formatted = f"${median_income:,}" if median_income > 0 else "Data processing"
-            home_value_formatted = f"${median_home_value:,}" if median_home_value > 0 else "Data processing"
-            pop_formatted = f"{population:,}" if population > 0 else "Data processing"
-            
-            return f"""
+            if geocode_result.get("coordinates"):
+                state = geocode_result.get("address_components", {}).get("state", "")
+                state_code = census.get_state_code(state) if state else ""
+                demographics = census.get_location_demographics(location, state_code)
+                
+                # PROCESS THE DATA WITH PROPER HANDLING
+                median_income = demographics.get('median_income', 0)
+                median_home_value = demographics.get('median_home_value', 0)
+                population = demographics.get('population', 0)
+                employment_rate = demographics.get('employment_rate', 0)
+                income_growth = demographics.get('income_growth', 0)
+                population_growth = demographics.get('population_growth', 0)
+                
+                # Calculate market strength
+                if median_income > 75000 and employment_rate > 95:
+                    market_strength = "Very Strong"
+                    investment_grade = "A+"
+                elif median_income > 50000 and employment_rate > 90:
+                    market_strength = "Strong"
+                    investment_grade = "A"
+                elif median_income > 35000 and employment_rate > 85:
+                    market_strength = "Moderate"
+                    investment_grade = "B+"
+                else:
+                    market_strength = "Developing"
+                    investment_grade = "B"
+                
+                # Calculate price per sqft
+                price_per_sqft = round(median_home_value / 1800) if median_home_value > 0 else 200
+                
+                # Format currency values
+                income_formatted = f"${median_income:,}" if median_income > 0 else "Data processing"
+                home_value_formatted = f"${median_home_value:,}" if median_home_value > 0 else "Data processing"
+                pop_formatted = f"{population:,}" if population > 0 else "Data processing"
+                
+                return f"""
 📈 COMPREHENSIVE MARKET ANALYSIS
 ===============================
 
@@ -183,60 +192,64 @@ def market_analysis_tool(location: str) -> str:
 
 📋 DATA SOURCES: US Census Bureau, Local Market Analytics
 """
-        else:
-            return f"Unable to analyze market for location: {location}. Please verify the location."
-            
-    except Exception as e:
-        return f"Error analyzing market: {str(e)}"
-
-@tool("Risk Assessment Tool")
-def risk_assessment_tool(address: str) -> str:
-    """Evaluate comprehensive investment risks using real environmental and market data"""
-    try:
-        # Initialize APIs
-        climate = ClimateAPI()
-        census = CensusAPI()
-        google_maps = GoogleMapsAPI()
-        
-        # Get location details for risk analysis
-        geocode_result = google_maps.geocode_address(address)
-        
-        if geocode_result.get("coordinates"):
-            lat = geocode_result["coordinates"]["latitude"]
-            lon = geocode_result["coordinates"]["longitude"]
-            
-            # Get climate risks
-            climate_risks = climate.get_climate_risk_assessment(lat, lon, address)
-            
-            # Get demographics for economic analysis
-            state = geocode_result.get("address_components", {}).get("state", "")
-            state_code = census.get_state_code(state) if state else ""
-            demographics = census.get_location_demographics(address, state_code)
-            
-            # PROPERLY PROCESS RISK DATA
-            climate_score = climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('score', 5)
-            climate_score = min(climate_score, 10)  # Ensure proper scaling
-            
-            employment_rate = demographics.get('employment_rate', 90)
-            median_income = demographics.get('median_income', 50000)
-            
-            # Calculate overall risk grade
-            if climate_score < 3 and employment_rate > 95 and median_income > 70000:
-                risk_grade = "A (Low Risk)"
-                investment_risk = "Low Risk - Excellent Investment Fundamentals"
-            elif climate_score < 5 and employment_rate > 90:
-                risk_grade = "B+ (Moderate-Low Risk)"
-                investment_risk = "Moderate Risk - Good Investment Profile"
             else:
-                risk_grade = "B (Moderate Risk)"
-                investment_risk = "Moderate Risk - Standard Investment Profile"
+                return f"Unable to analyze market for location: {location}. Please verify the location."
+                
+        except Exception as e:
+            return f"Error analyzing market: {str(e)}"
+
+class RiskAssessmentTool(BaseTool):
+    name: str = "Risk Assessment Tool"
+    description: str = "Evaluate comprehensive investment risks using real environmental and market data"
+    args_schema: Type[BaseModel] = PropertyDataInput
+
+    def _run(self, address: str) -> str:
+        """Evaluate comprehensive investment risks using real environmental and market data"""
+        try:
+            # Initialize APIs
+            climate = ClimateAPI()
+            census = CensusAPI()
+            google_maps = GoogleMapsAPI()
             
-            # Extract individual risk components
-            flood_risk = climate_risks.get('climate_risks', {}).get('flood_risk', {})
-            temp_risk = climate_risks.get('climate_risks', {}).get('temperature_extremes', {})
-            precip_risk = climate_risks.get('climate_risks', {}).get('precipitation_changes', {})
+            # Get location details for risk analysis
+            geocode_result = google_maps.geocode_address(address)
             
-            return f"""
+            if geocode_result.get("coordinates"):
+                lat = geocode_result["coordinates"]["latitude"]
+                lon = geocode_result["coordinates"]["longitude"]
+                
+                # Get climate risks
+                climate_risks = climate.get_climate_risk_assessment(lat, lon, address)
+                
+                # Get demographics for economic analysis
+                state = geocode_result.get("address_components", {}).get("state", "")
+                state_code = census.get_state_code(state) if state else ""
+                demographics = census.get_location_demographics(address, state_code)
+                
+                # PROPERLY PROCESS RISK DATA
+                climate_score = climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('score', 5)
+                climate_score = min(climate_score, 10)  # Ensure proper scaling
+                
+                employment_rate = demographics.get('employment_rate', 90)
+                median_income = demographics.get('median_income', 50000)
+                
+                # Calculate overall risk grade
+                if climate_score < 3 and employment_rate > 95 and median_income > 70000:
+                    risk_grade = "A (Low Risk)"
+                    investment_risk = "Low Risk - Excellent Investment Fundamentals"
+                elif climate_score < 5 and employment_rate > 90:
+                    risk_grade = "B+ (Moderate-Low Risk)"
+                    investment_risk = "Moderate Risk - Good Investment Profile"
+                else:
+                    risk_grade = "B (Moderate Risk)"
+                    investment_risk = "Moderate Risk - Standard Investment Profile"
+                
+                # Extract individual risk components
+                flood_risk = climate_risks.get('climate_risks', {}).get('flood_risk', {})
+                temp_risk = climate_risks.get('climate_risks', {}).get('temperature_extremes', {})
+                precip_risk = climate_risks.get('climate_risks', {}).get('precipitation_changes', {})
+                
+                return f"""
 ⚖️ COMPREHENSIVE RISK ASSESSMENT
 ===============================
 
@@ -273,19 +286,19 @@ Well-balanced risk profile suitable for most investment strategies
 
 📋 DATA SOURCES: Climate Analytics, Census Bureau, Local Market Data
 """
-        else:
-            return f"Unable to assess risks for address: {address}. Please verify the address."
-            
-    except Exception as e:
-        return f"Error assessing risks: {str(e)}"
+            else:
+                return f"Unable to assess risks for address: {address}. Please verify the address."
+                
+        except Exception as e:
+            return f"Error assessing risks: {str(e)}"
 
 # Keep the rest of PropertyAnalysisCrew class the same...
 class PropertyAnalysisCrew:
     def __init__(self):
         # Initialize tools with enhanced data processing
-        self.property_tool = property_research_tool
-        self.market_tool = market_analysis_tool
-        self.risk_tool = risk_assessment_tool
+        self.property_tool = PropertyResearchTool()
+        self.market_tool = MarketAnalysisTool()
+        self.risk_tool = RiskAssessmentTool()
         
         # Define agents (same as before)
         self.property_researcher = Agent(
