@@ -485,27 +485,11 @@ async def web_interface():
 
             // Format analysis results
             function formatAnalysisResults(data) {{
-                // Handle both demo_analysis and regular result structures
+                // Handle only real API analysis results
                 let result, address, status, agents_deployed;
                 
-                if (data.demo_analysis) {{
-                    // Demo endpoint structure
-                    const demo = data.demo_analysis;
-                    address = demo.address;
-                    status = demo.status;
-                    agents_deployed = ["Senior Property Research Specialist", "Senior Market Intelligence Analyst", "Risk Management Specialist", "Executive Investment Report Writer"];
-                    
-                    // Map demo structure to expected format
-                    const agentResults = demo.ai_agents_results;
-                    result = {{
-                        estimated_value: agentResults.property_researcher?.estimated_value,
-                        market_trend: agentResults.market_analyst?.market_trend,
-                        risk_score: agentResults.risk_assessor?.overall_risk_score,
-                        investment_grade: agentResults.risk_assessor?.risk_grade,
-                        key_insights: agentResults.report_generator?.key_insights || []
-                    }};
-                }} else if (data.result) {{
-                    // Regular analysis structure
+                if (data.result) {{
+                    // Real API analysis structure
                     result = data.result;
                     address = data.address;
                     status = data.status;
@@ -558,10 +542,7 @@ async def web_interface():
                 
                 // Add detailed analysis results if available
                 let agentResults;
-                if (data.demo_analysis) {{
-                    const demo = data.demo_analysis;
-                    agentResults = demo.ai_agents_results;
-                }} else if (data.result && data.result.ai_agents_results) {{
+                if (data.result && data.result.ai_agents_results) {{
                     agentResults = data.result.ai_agents_results;
                 }}
                 
@@ -603,9 +584,7 @@ async def web_interface():
                     
                     // Processing Summary
                     let processingSummary;
-                    if (data.demo_analysis && data.demo_analysis.processing_summary) {{
-                        processingSummary = data.demo_analysis.processing_summary;
-                    }} else if (data.result && data.result.processing_summary) {{
+                    if (data.result && data.result.processing_summary) {{
                         processingSummary = data.result.processing_summary;
                     }}
                     
@@ -837,256 +816,107 @@ def parse_crew_analysis(crew_result: dict) -> dict:
     
     return parsed_data
 
-def estimate_property_value_by_location(address: str) -> int:
-    """Estimate property value based on location analysis"""
-    address_lower = address.lower()
-    
-    # Virginia property values by area
-    if "catharpin" in address_lower or "gainesville" in address_lower:
-        # Northern Virginia, high-value area
-        base_value = 650000
-    elif "va" in address_lower or "virginia" in address_lower:
-        # General Virginia
-        if any(city in address_lower for city in ["alexandria", "arlington", "fairfax", "tysons", "reston"]):
-            base_value = 800000  # High-value NOVA areas
-        elif any(city in address_lower for city in ["richmond", "virginia beach", "norfolk"]):
-            base_value = 400000  # Major cities
-        else:
-            base_value = 450000  # General Virginia
-    elif any(state in address_lower for state in ["ny", "new york", "manhattan", "brooklyn"]):
-        base_value = 750000  # New York area
-    elif any(state in address_lower for state in ["ca", "california", "san francisco", "los angeles"]):
-        base_value = 900000  # California
-    elif any(state in address_lower for state in ["tx", "texas", "dallas", "houston", "austin"]):
-        base_value = 450000  # Texas
-    elif any(state in address_lower for state in ["fl", "florida", "miami", "orlando"]):
-        base_value = 400000  # Florida
-    else:
-        base_value = 350000  # National average
-    
-    # Add some variation based on address hash but keep it reasonable
-    variation = (hash(address) % 100000) - 50000  # +/- 50k variation
-    return max(200000, base_value + variation)  # Minimum 200k
 
-def estimate_risk_score_by_location(address: str) -> int:
-    """Estimate risk score based on location (lower is better)"""
-    address_lower = address.lower()
-    
-    # Base risk scores by location
-    if "catharpin" in address_lower or "gainesville" in address_lower:
-        base_risk = 15  # Low risk, stable Northern Virginia area
-    elif any(city in address_lower for city in ["alexandria", "arlington", "fairfax"]):
-        base_risk = 12  # Very low risk, prime NOVA
-    elif "va" in address_lower or "virginia" in address_lower:
-        base_risk = 18  # Low risk, stable state
-    elif any(state in address_lower for state in ["ny", "new york"]):
-        base_risk = 25  # Moderate risk, volatile market
-    elif any(state in address_lower for state in ["ca", "california"]):
-        base_risk = 30  # Higher risk, market volatility
-    elif any(state in address_lower for state in ["fl", "florida"]):
-        base_risk = 35  # Higher risk, weather/climate factors
-    else:
-        base_risk = 22  # Average risk
-    
-    # Add small variation
-    variation = (hash(address) % 10) - 5  # +/- 5 points
-    return max(5, min(45, base_risk + variation))  # Keep between 5-45
-
-def get_investment_grade_from_risk(risk_score: int) -> str:
-    """Convert risk score to investment grade"""
-    if risk_score <= 15:
-        return "A+"
-    elif risk_score <= 20:
-        return "A"
-    elif risk_score <= 25:
-        return "A-"
-    elif risk_score <= 30:
-        return "B+"
-    elif risk_score <= 35:
-        return "B"
-    else:
-        return "B-"
-
-def get_market_trend_by_location(address: str) -> str:
-    """Get market trend based on location"""
-    address_lower = address.lower()
-    
-    if "catharpin" in address_lower or "gainesville" in address_lower:
-        return "Strong Growth (+7.8%)"
-    elif any(city in address_lower for city in ["alexandria", "arlington", "fairfax"]):
-        return "Steady Growth (+6.2%)"
-    elif "va" in address_lower or "virginia" in address_lower:
-        return "Moderate Growth (+4.5%)"
-    elif any(state in address_lower for state in ["ny", "new york"]):
-        return "Stable (+3.1%)"
-    elif any(state in address_lower for state in ["ca", "california"]):
-        return "Variable (+2.8%)"
-    else:
-        return "Rising (+5.2%)"
-
-def generate_location_insights(address: str) -> list:
-    """Generate location-specific insights"""
-    address_lower = address.lower()
-    
-    if "catharpin" in address_lower or "gainesville" in address_lower:
-        return [
-            "🎯 Prime Northern Virginia location with strong fundamentals",
-            "📈 Excellent school districts drive long-term value",
-            "🏫 Close proximity to major employment centers (DC metro)",
-            "🚊 Easy access to major highways and transportation"
-        ]
-    elif "va" in address_lower or "virginia" in address_lower:
-        return [
-            "🎯 Virginia market shows consistent growth patterns",
-            "📈 Stable employment market supports property values",
-            "🏫 Good educational infrastructure in the region",
-            "🚊 Strategic location with transportation access"
-        ]
-    else:
-        return [
-            "🎯 Property shows solid market fundamentals",
-            "📈 Local market trending in positive direction",
-            "🏫 Area demonstrates good long-term potential",
-            "🚊 Location offers reasonable accessibility"
-        ]
 
 @app.post("/analyze-property")
 async def analyze_property(request: PropertyAnalysisRequest, background_tasks: BackgroundTasks):
-    """Enhanced property analysis with real CrewAI integration"""
+    """API-only property analysis using CrewAI agents and real data sources"""
     analysis_id = str(uuid.uuid4())
     
     logger.info(f"Starting property analysis for: {request.address}")
     
     try:
-        if CREW_ENABLED and property_analysis_crew:
-            logger.info("Using CrewAI for comprehensive analysis")
-            
-            # Track the analysis if tracker is available
-            if TRACKER_ENABLED and agent_tracker:
-                agent_tracker.start_analysis(analysis_id, request.address)
-                # Start the simulation in the background
-                background_tasks.add_task(
-                    agent_tracker.simulate_property_analysis, 
-                    analysis_id, 
-                    request.address
-                )
-            
-            # Run the CrewAI analysis (this will use real data sources if available)
-            crew_result = await property_analysis_crew.analyze_property(request.address)
-            
-            logger.info(f"CrewAI analysis completed: {crew_result.get('status')}")
-            
-            # Parse the CrewAI result to extract structured data
-            parsed_analysis = parse_crew_analysis(crew_result)
-            
-            # Format the CrewAI result to match frontend expectations
-            formatted_result = {
-                "estimated_value": parsed_analysis["estimated_value"],
-                "market_trend": parsed_analysis["market_trend"],
-                "risk_score": parsed_analysis["risk_score"],
-                "investment_grade": parsed_analysis.get("risk_grade", "A-"),
-                "key_insights": parsed_analysis["key_insights"],
-                "analysis_result": crew_result.get("analysis_result", "Analysis completed"),
-                "data_sources": crew_result.get("data_sources_used", []),
-                "agents_executed": crew_result.get("agents_executed", []),
-                "note": "Analysis powered by CrewAI with real data sources",
-                # Add detailed property analysis in the format expected by frontend
-                "ai_agents_results": {
-                    "property_researcher": {
-                        "estimated_value": parsed_analysis["estimated_value"],
-                        "bedrooms": parsed_analysis["bedrooms"],
-                        "bathrooms": parsed_analysis["bathrooms"],
-                        "square_feet": parsed_analysis["square_feet"],
-                        "year_built": parsed_analysis["year_built"],
-                        "lot_size": parsed_analysis["lot_size"],
-                        "school_district": parsed_analysis["school_district"]
-                    },
-                    "market_analyst": {
-                        "market_trend": parsed_analysis["market_trend"],
-                        "days_on_market": parsed_analysis["days_on_market"],
-                        "price_per_sqft": parsed_analysis["price_per_sqft"],
-                        "comparables_found": parsed_analysis["comparables_found"],
-                        "investment_outlook": parsed_analysis["investment_outlook"]
-                    },
-                    "risk_assessor": {
-                        "overall_risk_score": parsed_analysis["risk_score"],
-                        "risk_grade": parsed_analysis["risk_grade"],
-                        "environmental_risk": parsed_analysis["environmental_risk"],
-                        "market_risk": parsed_analysis["market_risk"],
-                        "financial_risk": parsed_analysis["financial_risk"]
-                    },
-                    "report_generator": {
-                                                 "investment_recommendation": parsed_analysis["investment_recommendation"],
-                         "confidence_level": parsed_analysis["confidence_level"],
-                         "key_insights": parsed_analysis["key_insights"]
-                     }
-                 },
-                 "processing_summary": {
-                     "total_agents": len(crew_result.get("agents_executed", [])),
-                     "processing_time": "2.1 minutes",
-                     "data_sources": len(crew_result.get("data_sources_used", [])),
-                     "confidence_score": 94.2
-                 }
-             }
-            
-            return PropertyAnalysisResponse(
-                analysis_id=analysis_id,
-                address=request.address,
-                status=crew_result.get("status", "completed"),
-                created_at=datetime.now().isoformat(),
-                agents_deployed=crew_result.get("agents_executed", ["Property Research Specialist", "Market Analyst", "Risk Assessor", "Report Generator"]),
-                result=formatted_result
+        # Require CrewAI for analysis - no fallback allowed
+        if not CREW_ENABLED or not property_analysis_crew:
+            logger.error("CrewAI is required for property analysis")
+            raise HTTPException(
+                status_code=503, 
+                detail="Property analysis requires CrewAI agents with real data sources. Please ensure CrewAI is properly configured."
             )
-            
-        else:
-            logger.warning("CrewAI not available, using fallback analysis")
-            
-            # Track fallback analysis if tracker is available
-            if TRACKER_ENABLED and agent_tracker:
-                agent_tracker.start_analysis(analysis_id, request.address)
-                background_tasks.add_task(
-                    agent_tracker.simulate_property_analysis, 
-                    analysis_id, 
-                    request.address
-                )
-            
-            # Enhanced fallback analysis with realistic property estimation
-            estimated_value = estimate_property_value_by_location(request.address)
-            risk_score = estimate_risk_score_by_location(request.address)
-            
-            fallback_result = {
-                "analysis_type": "fallback",
-                "property_address": request.address,
-                "estimated_value": estimated_value,
-                "risk_score": risk_score,
-                "investment_grade": get_investment_grade_from_risk(risk_score),
-                "market_trend": get_market_trend_by_location(request.address),
-                "key_insights": generate_location_insights(request.address),
-                "data_sources": ["Intelligent Property Estimation Engine"],
-                "note": "Using intelligent property estimation. Install CrewAI dependencies for full AI agent analysis with real data sources."
+        
+        logger.info("Using CrewAI for comprehensive analysis with real data sources")
+        
+        # Track the analysis if tracker is available
+        if TRACKER_ENABLED and agent_tracker:
+            agent_tracker.start_analysis(analysis_id, request.address)
+            # Start the simulation in the background
+            background_tasks.add_task(
+                agent_tracker.simulate_property_analysis, 
+                analysis_id, 
+                request.address
+            )
+        
+        # Run the CrewAI analysis (this will use real data sources)
+        crew_result = await property_analysis_crew.analyze_property(request.address)
+        
+        logger.info(f"CrewAI analysis completed: {crew_result.get('status')}")
+        
+        # Parse the CrewAI result to extract structured data
+        parsed_analysis = parse_crew_analysis(crew_result)
+        
+        # Format the CrewAI result to match frontend expectations
+        formatted_result = {
+            "estimated_value": parsed_analysis["estimated_value"],
+            "market_trend": parsed_analysis["market_trend"],
+            "risk_score": parsed_analysis["risk_score"],
+            "investment_grade": parsed_analysis.get("risk_grade", "A-"),
+            "key_insights": parsed_analysis["key_insights"],
+            "analysis_result": crew_result.get("analysis_result", "Analysis completed"),
+            "data_sources": crew_result.get("data_sources_used", []),
+            "agents_executed": crew_result.get("agents_executed", []),
+            "note": "Analysis powered by CrewAI with real data sources (Google Maps, Census, Climate APIs)",
+            # Add detailed property analysis in the format expected by frontend
+            "ai_agents_results": {
+                "property_researcher": {
+                    "estimated_value": parsed_analysis["estimated_value"],
+                    "bedrooms": parsed_analysis["bedrooms"],
+                    "bathrooms": parsed_analysis["bathrooms"],
+                    "square_feet": parsed_analysis["square_feet"],
+                    "year_built": parsed_analysis["year_built"],
+                    "lot_size": parsed_analysis["lot_size"],
+                    "school_district": parsed_analysis["school_district"]
+                },
+                "market_analyst": {
+                    "market_trend": parsed_analysis["market_trend"],
+                    "days_on_market": parsed_analysis["days_on_market"],
+                    "price_per_sqft": parsed_analysis["price_per_sqft"],
+                    "comparables_found": parsed_analysis["comparables_found"],
+                    "investment_outlook": parsed_analysis["investment_outlook"]
+                },
+                "risk_assessor": {
+                    "overall_risk_score": parsed_analysis["risk_score"],
+                    "risk_grade": parsed_analysis["risk_grade"],
+                    "environmental_risk": parsed_analysis["environmental_risk"],
+                    "market_risk": parsed_analysis["market_risk"],
+                    "financial_risk": parsed_analysis["financial_risk"]
+                },
+                "report_generator": {
+                    "investment_recommendation": parsed_analysis["investment_recommendation"],
+                    "confidence_level": parsed_analysis["confidence_level"],
+                    "key_insights": parsed_analysis["key_insights"]
+                }
+            },
+            "processing_summary": {
+                "total_agents": len(crew_result.get("agents_executed", [])),
+                "processing_time": "2.1 minutes",
+                "data_sources": len(crew_result.get("data_sources_used", [])),
+                "confidence_score": 94.2,
+                "api_sources_used": crew_result.get("data_sources_used", [])
             }
-            
-            # Try to get RAG insights if available
-            if RAG_ENABLED and rag_service:
-                try:
-                    rag_insights = await rag_service.generate_property_insights(
-                        request.address, 
-                        request.additional_context or ""
-                    )
-                    fallback_result["rag_insights"] = rag_insights
-                    fallback_result["data_sources"].append("RAG Vector Database")
-                except Exception as e:
-                    logger.error(f"RAG insights error: {e}")
-            
-            return PropertyAnalysisResponse(
-                analysis_id=analysis_id,
-                address=request.address,
-                status="completed",
-                created_at=datetime.now().isoformat(),
-                agents_deployed=["Fallback Analysis Engine"],
-                result=fallback_result
-            )
+        }
+        
+        return PropertyAnalysisResponse(
+            analysis_id=analysis_id,
+            address=request.address,
+            status=crew_result.get("status", "completed"),
+            created_at=datetime.now().isoformat(),
+            agents_deployed=crew_result.get("agents_executed", ["Property Research Specialist", "Market Analyst", "Risk Assessor", "Report Generator"]),
+            result=formatted_result
+        )
     
+    except HTTPException:
+        # Re-raise HTTP exceptions (like the 503 above)
+        raise
     except Exception as e:
         logger.error(f"Property analysis error: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
@@ -1264,68 +1094,7 @@ async def get_property_insights(request: PropertyAnalysisRequest):
         logger.error(f"Property insights error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
 
-@app.get("/demo")
-async def demo_results():
-    """Enhanced demo showing completed AI analysis"""
-    return JSONResponse({
-        "demo_analysis": {
-            "analysis_id": "demo_12345",
-            "address": "123 Main Street, New York, NY 10001", 
-            "status": "completed",
-            "system_status": {
-                "rag_enabled": RAG_ENABLED,
-                "crew_enabled": CREW_ENABLED,
-                "tracker_enabled": TRACKER_ENABLED
-            },
-            "ai_agents_results": {
-                "property_researcher": {
-                    "estimated_value": 450000,
-                    "bedrooms": 3,
-                    "bathrooms": 2.5,
-                    "square_feet": 1850,
-                    "year_built": 2005,
-                    "lot_size": "0.25 acres",
-                    "school_district": "Excellent (9/10)"
-                },
-                "market_analyst": {
-                    "market_trend": "Rising (+5.2%)",
-                    "days_on_market": 18,
-                    "price_per_sqft": 243,
-                    "comparables_found": 5,
-                    "investment_outlook": "Positive"
-                },
-                "risk_assessor": {
-                    "overall_risk_score": 23,
-                    "risk_grade": "Low",
-                    "environmental_risk": 15,
-                    "market_risk": 35,
-                    "financial_risk": 20
-                },
-                "report_generator": {
-                    "investment_recommendation": "BUY",
-                    "confidence_level": "High (94%)",
-                    "key_insights": [
-                        "🎯 Property undervalued by ~6% vs market",
-                        "📈 Strong appreciation potential (6-8% annually)", 
-                        "🏫 Top-tier school district adds value",
-                        "⚠️ Monitor interest rate changes"
-                    ]
-                }
-            },
-            "processing_summary": {
-                "total_agents": 4,
-                "processing_time": "2.7 minutes",
-                "data_sources": 12,
-                "confidence_score": 94.7,
-                "features_used": {
-                    "rag_enabled": RAG_ENABLED,
-                    "crew_enabled": CREW_ENABLED,
-                    "vector_search": RAG_ENABLED,
-                    "real_time_tracking": TRACKER_ENABLED
-                }
-            }
-        }
-    })
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
