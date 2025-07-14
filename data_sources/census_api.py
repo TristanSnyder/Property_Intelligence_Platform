@@ -101,6 +101,9 @@ class CensusAPI:
     
     def get_location_demographics(self, address: str, state_code: str, geocode_result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Get comprehensive demographics from real Census API data only"""
+        print(f"🚀 Starting Census demographics lookup for: {address}")
+        print(f"📍 State code: {state_code}")
+        
         if not self.api_key:
             raise ValueError("Census API key is required for real data analysis")
         
@@ -111,10 +114,15 @@ class CensusAPI:
         county_fips = None
         county_name = None
         
+        print(f"🔍 Extracting county from geocoding result...")
         if geocode_result:
             county_name = self.get_county_from_geocoding(geocode_result)
+            print(f"🏘️ County name extracted: '{county_name}'")
+            
             if county_name:
+                print(f"🔍 Looking up county FIPS code for: {county_name}")
                 county_fips = self.lookup_county_fips(state_code, county_name)
+                print(f"🏘️ County FIPS result: '{county_fips}'")
         
         # Try county-level data first
         if county_fips:
@@ -125,6 +133,7 @@ class CensusAPI:
                     result = self._clean_and_validate_real_data(demographics, address, state_code, "county")
                     result["county_name"] = county_name
                     result["county_fips"] = county_fips
+                    print(f"✅ County-level demographics completed successfully")
                     return result
             except Exception as e:
                 print(f"⚠️ County-level data failed: {e}")
@@ -137,7 +146,9 @@ class CensusAPI:
             raise ValueError(f"No Census data available for state code {state_code}")
         
         # Clean and validate the real data
-        return self._clean_and_validate_real_data(demographics, address, state_code, "state")
+        result = self._clean_and_validate_real_data(demographics, address, state_code, "state")
+        print(f"✅ State-level demographics completed successfully")
+        return result
     
     def _fetch_county_census_data(self, state_code: str, county_code: str) -> Dict[str, Any]:
         """Fetch county-level data from Census API"""

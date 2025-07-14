@@ -152,6 +152,9 @@ class PropertyResearchTool(BaseTool):
                     if not state_code:
                         raise ValueError(f"Invalid state code for state: '{state_abbrev}'")
                     
+                    print(f"🔑 Census API key available: {bool(census.api_key)}")
+                    print(f"🎯 About to call Census API for demographics...")
+                    
                     demographics = census.get_location_demographics(address, state_code, geocode_result)
                     print(f"📊 Demographics retrieved successfully")
                     
