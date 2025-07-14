@@ -1,0 +1,26 @@
+# Environment Variables for Property Intelligence Platform
+# Copy this content to a file named .env and add your actual API keys
+
+# Google Maps API Key (Required)
+# Get from: https://developers.google.com/maps/documentation/geocoding/get-api-key
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+
+# US Census Bureau API Key (Required)  
+# Get from: https://api.census.gov/data/key_signup.html
+CENSUS_API_KEY=your_census_api_key_here
+
+# Optional: OpenStreetMap API does not require a key (free service)
+# Weather API (Open-Meteo) does not require a key (free service)
+
+# Database Configuration (if using)
+# DATABASE_URL=sqlite:///./property_data.db
+
+# Application Settings
+# DEBUG=True
+# LOG_LEVEL=INFO
+
+# Instructions:
+# 1. Create a file named .env in the project root directory
+# 2. Copy the content above into the .env file
+# 3. Replace the placeholder values with your actual API keys
+# 4. Make sure .env is in your .gitignore file (it already is) 

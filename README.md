@@ -83,7 +83,11 @@ nano .env
 ```
 
 **Required Environment Variables:**
-- `OPENAI_API_KEY` - Your OpenAI API key for LLM and embeddings
+- `GOOGLE_MAPS_API_KEY` - Your Google Maps API key for geocoding and location data
+- `CENSUS_API_KEY` - Your US Census Bureau API key for demographic data
+
+**Optional Environment Variables:**
+- No additional keys needed (OpenStreetMap and Open-Meteo are free services)
 
 ### 3. Initialize Vector Database
 

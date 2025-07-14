@@ -33,21 +33,28 @@ class PropertyResearchTool(BaseTool):
             census = CensusAPI()
             osm = OpenStreetMapAPI()
             
+            print(f"🔍 Starting property research for: {address}")
+            
             # Get comprehensive location data
             geocode_result = google_maps.geocode_address(address)
+            print(f"✅ Geocoding successful for: {geocode_result.get('address', address)}")
             
             if geocode_result.get("coordinates"):
                 lat = geocode_result["coordinates"]["latitude"]
                 lon = geocode_result["coordinates"]["longitude"]
+                print(f"📍 Coordinates: {lat}, {lon}")
                 
                 # Get area insights from Google Maps
                 area_insights = google_maps.get_area_insights(address)
+                print(f"🗺️ Area insights retrieved: {len(area_insights)} metrics")
                 
                 # Get location intelligence from OpenStreetMap (optional)
                 try:
                     location_intel = osm.get_location_intelligence(address)
+                    print(f"🚶 OpenStreetMap data retrieved successfully")
                 except Exception as osm_error:
                     # If OpenStreetMap fails, use Google Maps coordinates for basic location data
+                    print(f"⚠️ OpenStreetMap unavailable: {osm_error}")
                     location_intel = {
                         "address": address,
                         "coordinates": {"latitude": lat, "longitude": lon},
@@ -62,10 +69,47 @@ class PropertyResearchTool(BaseTool):
                         "osm_error": str(osm_error)
                     }
                 
-                # Get demographics from Census
-                state = geocode_result.get("address_components", {}).get("state", "")
-                state_code = census.get_state_code(state) if state else ""
-                demographics = census.get_location_demographics(address, state_code, geocode_result)
+                # Get demographics from Census with improved error handling
+                try:
+                    # Extract state information
+                    address_components = geocode_result.get("address_components", {})
+                    state = address_components.get("state", "")
+                    county = address_components.get("county", "")
+                    
+                    print(f"🏛️ State extracted: '{state}'")
+                    print(f"🏘️ County extracted: '{county}'")
+                    
+                    if not state:
+                        # Try to extract from formatted address
+                        formatted_address = geocode_result.get("address", "")
+                        if ", VA " in formatted_address or formatted_address.endswith(" VA"):
+                            state = "Virginia"
+                            print(f"🔄 State inferred from address: 'Virginia'")
+                    
+                    if not state:
+                        raise ValueError(f"Unable to determine state from address: {address}")
+                    
+                    state_code = census.get_state_code(state) if state else ""
+                    print(f"🔢 State code: '{state_code}'")
+                    
+                    if not state_code:
+                        raise ValueError(f"Invalid state code for state: '{state}'")
+                    
+                    demographics = census.get_location_demographics(address, state_code, geocode_result)
+                    print(f"📊 Demographics retrieved successfully")
+                    
+                except Exception as demo_error:
+                    print(f"❌ Demographics error: {demo_error}")
+                    # Provide fallback structure with error info
+                    demographics = {
+                        "population": 0,
+                        "median_income": 0,
+                        "median_home_value": 0,
+                        "employment_rate": 0,
+                        "education_level": 0,
+                        "error": str(demo_error),
+                        "data_source": "Census API (failed)"
+                    }
                 
                 # PROCESS AND CLEAN THE DATA
                 area_score = min(area_insights.get('area_score', 8), 10)  # Cap at 10
@@ -76,9 +120,14 @@ class PropertyResearchTool(BaseTool):
                 education_level = demographics.get('education_level', 0)
                 
                 # Format population with commas
-                pop_formatted = f"{population:,}" if population > 0 else "N/A"
+                pop_formatted = f"{population:,}" if population > 0 else "Data pending"
                 income_formatted = f"${median_income:,}" if median_income > 0 else "Data pending"
                 home_value_formatted = f"${median_home_value:,}" if median_home_value > 0 else "Data pending"
+                
+                # Include error information if demographics failed
+                demo_status = ""
+                if demographics.get("error"):
+                    demo_status = f"\n⚠️ Census Data Issue: {demographics['error']}"
                 
                 return f"""
 🏠 COMPREHENSIVE PROPERTY RESEARCH REPORT
@@ -109,23 +158,27 @@ class PropertyResearchTool(BaseTool):
 • Median Household Income: {income_formatted}
 • Median Home Value: {home_value_formatted}
 • Education Level: {education_level}% college-educated
-• Employment Rate: {employment_rate}%
+• Employment Rate: {employment_rate}%{demo_status}
 
 📊 KEY INSIGHTS:
 • Location demonstrates strong urban characteristics
 • Excellent amenity access and infrastructure
-• Solid demographic fundamentals
+• Solid demographic fundamentals  
 • Active real estate market indicators
 
 📋 DATA SOURCES: Google Maps API, {location_intel.get('data_source', 'OpenStreetMap')}, US Census Bureau
 """
             else:
-                return f"Unable to geocode address: {address}. Please verify the address format."
+                return f"❌ Unable to geocode address: {address}. Please verify the address format and ensure Google Maps API key is configured."
                 
         except Exception as e:
             error_msg = str(e)
-            if "API key is required" in error_msg:
+            print(f"❌ PropertyResearchTool Error: {error_msg}")
+            
+            if "API key is required" in error_msg or "API key" in error_msg:
                 return f"❌ API Configuration Error: {error_msg}. Please configure API keys for real data analysis."
+            elif "state" in error_msg.lower():
+                return f"❌ State/Location Error: {error_msg}. Unable to determine state or county information for address: {address}"
             else:
                 return f"❌ Property Research Error: {error_msg}"
 
