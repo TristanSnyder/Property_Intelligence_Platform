@@ -189,45 +189,21 @@ class PropertyResearchTool(BaseTool):
                 if demographics.get("error"):
                     demo_status = f"\n⚠️ Census Data Issue: {demographics['error']}"
                 
-                return f"""
-🏠 COMPREHENSIVE PROPERTY RESEARCH REPORT
-=========================================
+                # MINIMAL OUTPUT VERSION FOR TESTING
+                return f"""🏠 PROPERTY RESEARCH - {geocode_result.get('address', address)}
 
-📍 LOCATION ANALYSIS:
-• Address: {geocode_result.get('address', address)}
-• Coordinates: {lat:.6f}, {lon:.6f}
-• Location Type: {geocode_result.get('location_type', 'Urban Center')}
-• Neighborhood: {geocode_result.get('neighborhood', 'Urban District')}
+📍 LOCATION: {lat:.6f}, {lon:.6f}
+👥 POPULATION: {pop_formatted}
+💰 MEDIAN INCOME: {income_formatted}
+🏡 MEDIAN HOME VALUE: {home_value_formatted}
+🎓 EDUCATION: {education_level}% college-educated
+💼 EMPLOYMENT: {employment_rate}%
 
-🗺️ AREA CHARACTERISTICS (Google Maps):
-• Overall Area Score: {area_score}/10
-• Nearby Restaurants: {area_insights.get('restaurants', 0)} establishments
-• Educational Facilities: {area_insights.get('schools', 0)} schools/universities
-• Healthcare Access: {area_insights.get('hospitals', 0)} medical facilities
-• Shopping Centers: {area_insights.get('shopping', 0)} retail locations
-• Amenity Density: {area_insights.get('amenity_density', 'Moderate')}
+📊 AREA SCORE: {area_score}/10
+🚶 WALKABILITY: {location_intel.get('scores', {}).get('walkability', 8.5)}/10
 
-🚶 WALKABILITY & ACCESSIBILITY ({location_intel.get('data_source', 'OpenStreetMap')}):
-• Walkability Score: {location_intel.get('scores', {}).get('walkability', location_intel.get('walkability_score', 8.5))}/10
-• Transit Accessibility: {location_intel.get('scores', {}).get('transit_access', location_intel.get('transit_score', 8.0))}/10
-• POI Density: {location_intel.get('poi_density', 'High')}
-• Infrastructure Quality: {'Good urban infrastructure' if 'Google Maps' in location_intel.get('data_source', '') else 'Excellent urban infrastructure'}
-
-👥 DEMOGRAPHICS & ECONOMICS (US Census):
-• Total Population: {pop_formatted} residents
-• Median Household Income: {income_formatted}
-• Median Home Value: {home_value_formatted}
-• Education Level: {education_level}% college-educated
-• Employment Rate: {employment_rate}%{demo_status}
-
-📊 KEY INSIGHTS:
-• Location demonstrates strong urban characteristics
-• Excellent amenity access and infrastructure
-• Solid demographic fundamentals  
-• Active real estate market indicators
-
-📋 DATA SOURCES: Google Maps API, {location_intel.get('data_source', 'OpenStreetMap')}, US Census Bureau
-"""
+✅ DATA SOURCES: Google Maps, US Census, {location_intel.get('data_source', 'OpenStreetMap')}
+{demo_status}"""
             else:
                 return f"❌ Unable to geocode address: {address}. Please verify the address format and ensure Google Maps API key is configured."
                 
@@ -321,40 +297,18 @@ class MarketAnalysisTool(BaseTool):
                 home_value_formatted = f"${median_home_value:,}" if median_home_value > 0 else "Data processing"
                 pop_formatted = f"{population:,}" if population > 0 else "Data processing"
                 
-                return f"""
-📈 COMPREHENSIVE MARKET ANALYSIS
-===============================
+                # OPTIMIZED SHORTER OUTPUT
+                return f"""📈 MARKET ANALYSIS - {location}
 
-🎯 MARKET OVERVIEW:
-• Location: {location}
-• Market Classification: {market_strength} Growth Market
-• Investment Grade: {investment_grade}
-• Market Cycle: Expansion Phase
+🎯 MARKET GRADE: {investment_grade} ({market_strength})
+💰 MEDIAN HOME VALUE: {home_value_formatted}
+💵 MEDIAN INCOME: {income_formatted}
+📊 POPULATION: {pop_formatted}
+💼 EMPLOYMENT: {employment_rate}%
+🎓 EDUCATION: {demographics.get('education_level', 'High')}% college-educated
 
-💰 FINANCIAL METRICS:
-• Median Home Value: {home_value_formatted}
-• Estimated Price/SqFt: ${price_per_sqft}
-• Median Household Income: {income_formatted}
-• Income-to-Housing Ratio: {demographics.get('income_to_housing_ratio', 'Calculating')}:1
-
-📊 INVESTMENT ANALYSIS:
-• Appreciation Potential: {5 + min(income_growth, 3)}-{7 + min(income_growth, 3)}% annually
-• Population Growth: +{population_growth}% annually
-• Economic Stability: {market_strength} ({employment_rate}% employment)
-• Market Liquidity: High urban market activity
-
-🏘️ DEMOGRAPHIC STRENGTH:
-• Population: {pop_formatted} residents
-• Age Demographics: Professional working age focus
-• Education Level: {demographics.get('education_level', 'High')}% college-educated
-• Industry Diversity: {demographics.get('industry_diversity', 'High')} economic base
-
-💡 INVESTMENT RECOMMENDATION: 
-{investment_grade} - {market_strength} fundamentals with positive growth indicators
-
-📋 DATA SOURCES: {data_source}, Google Maps API
-📍 DATA ACCURACY: {data_level.title()} level demographic data
-"""
+💡 INVESTMENT: {market_strength} fundamentals, {5 + min(income_growth, 3)}-{7 + min(income_growth, 3)}% growth potential
+📋 SOURCE: {data_source} ({data_level} level)"""
             else:
                 return f"❌ Unable to analyze market for location: {location}. Google Maps geocoding failed."
                 
@@ -429,43 +383,18 @@ class RiskAssessmentTool(BaseTool):
                 temp_risk = climate_risks.get('climate_risks', {}).get('temperature_extremes', {})
                 precip_risk = climate_risks.get('climate_risks', {}).get('precipitation_changes', {})
                 
-                return f"""
-⚖️ COMPREHENSIVE RISK ASSESSMENT
-===============================
+                # OPTIMIZED SHORTER OUTPUT
+                return f"""⚖️ RISK ASSESSMENT - {address}
 
-🎯 OVERALL RISK PROFILE:
-• Overall Risk Grade: {risk_grade}
-• Investment Classification: {investment_risk}
-• Location: {address}
+🎯 RISK GRADE: {risk_grade}
+🌡️ CLIMATE RISK: {climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('level', 'Moderate')} ({climate_score}/10)
+🌊 FLOOD RISK: {flood_risk.get('level', 'Low')}
+💼 EMPLOYMENT: {employment_rate}% stability
+💰 INCOME: ${median_income:,} median
 
-🌡️ CLIMATE & ENVIRONMENTAL RISKS:
-• Overall Climate Risk: {climate_risks.get('climate_risks', {}).get('overall_climate_risk', {}).get('level', 'Moderate')} ({climate_score}/10)
-• Flood Risk: {flood_risk.get('level', 'Low')} - {flood_risk.get('description', 'Standard risk level')}
-• Temperature Risk: {temp_risk.get('level', 'Low')} - {temp_risk.get('description', 'Moderate variations')}
-• Precipitation Risk: {precip_risk.get('level', 'Low')} - {precip_risk.get('description', 'Normal patterns')}
-
-💼 FINANCIAL & MARKET RISKS:
-• Economic Volatility: Low - Diverse economic base
-• Market Liquidity: High - Active urban market
-• Employment Stability: {employment_rate}% employment rate
-• Income Stability: Strong demographic fundamentals
-
-🛡️ RISK MITIGATION STRATEGIES:
-• Standard property insurance recommended
-• Energy efficiency upgrades for cost savings
-• Regular property maintenance and inspections
-• Monitor local market conditions quarterly
-
-📊 RISK-RETURN ANALYSIS:
-• Expected Return: 7-10% annually (total return)
-• Risk-Adjusted Profile: Favorable for balanced portfolios
-• Market Volatility: Standard urban real estate patterns
-
-✅ CONCLUSION: {risk_grade.split('(')[0]} INVESTMENT RISK
-Well-balanced risk profile suitable for most investment strategies
-
-📋 DATA SOURCES: {climate_risks.get('data_source', 'Climate Analytics')}, Census Bureau, Local Market Data
-"""
+📊 EXPECTED RETURN: 7-10% annually
+✅ INVESTMENT: {risk_grade.split('(')[0]} suitable for most portfolios
+📋 SOURCE: {climate_risks.get('data_source', 'Climate Analytics')}"""
             else:
                 return f"Unable to assess risks for address: {address}. Please verify the address."
                 
