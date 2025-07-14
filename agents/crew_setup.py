@@ -65,7 +65,7 @@ class PropertyResearchTool(BaseTool):
                 # Get demographics from Census
                 state = geocode_result.get("address_components", {}).get("state", "")
                 state_code = census.get_state_code(state) if state else ""
-                demographics = census.get_location_demographics(address, state_code)
+                demographics = census.get_location_demographics(address, state_code, geocode_result)
                 
                 # PROCESS AND CLEAN THE DATA
                 area_score = min(area_insights.get('area_score', 8), 10)  # Cap at 10
@@ -141,13 +141,40 @@ class MarketAnalysisTool(BaseTool):
             census = CensusAPI()
             google_maps = GoogleMapsAPI()
             
+            # LOG API KEY STATUS
+            api_status = []
+            if census.api_key:
+                api_status.append("✅ Census API key configured")
+            else:
+                api_status.append("❌ Census API key missing")
+            
+            if google_maps.api_key:
+                api_status.append("✅ Google Maps API key configured")
+            else:
+                api_status.append("❌ Google Maps API key missing")
+            
             # Get location details
             geocode_result = google_maps.geocode_address(location)
             
             if geocode_result.get("coordinates"):
                 state = geocode_result.get("address_components", {}).get("state", "")
                 state_code = census.get_state_code(state) if state else ""
-                demographics = census.get_location_demographics(location, state_code)
+                
+                # LOG WHAT WE'RE FETCHING
+                print(f"🔍 MARKET ANALYSIS DEBUG:")
+                print(f"   Location: {location}")
+                print(f"   State: {state} (Code: {state_code})")
+                print(f"   API Status: {'; '.join(api_status)}")
+                
+                demographics = census.get_location_demographics(location, state_code, geocode_result)
+                
+                # LOG WHAT WE RECEIVED
+                print(f"   📊 Census Data Retrieved:")
+                print(f"     - Population: {demographics.get('population', 'N/A'):,}")
+                print(f"     - Median Income: ${demographics.get('median_income', 'N/A'):,}")
+                print(f"     - Median Home Value: ${demographics.get('median_home_value', 'N/A'):,}")
+                print(f"     - Data Level: {demographics.get('data_level', 'unknown')}")
+                print(f"     - Data Source: {demographics.get('data_source', 'unknown')}")
                 
                 # PROCESS THE DATA WITH PROPER HANDLING
                 median_income = demographics.get('median_income', 0)
@@ -156,6 +183,8 @@ class MarketAnalysisTool(BaseTool):
                 employment_rate = demographics.get('employment_rate', 0)
                 income_growth = demographics.get('income_growth', 0)
                 population_growth = demographics.get('population_growth', 0)
+                data_level = demographics.get('data_level', 'unknown')
+                data_source = demographics.get('data_source', 'US Census Bureau')
                 
                 # Calculate market strength
                 if median_income > 75000 and employment_rate > 95:
@@ -210,10 +239,11 @@ class MarketAnalysisTool(BaseTool):
 💡 INVESTMENT RECOMMENDATION: 
 {investment_grade} - {market_strength} fundamentals with positive growth indicators
 
-📋 DATA SOURCES: US Census Bureau, Local Market Analytics
+📋 DATA SOURCES: {data_source}, Google Maps API
+📍 DATA ACCURACY: {data_level.title()} level demographic data
 """
             else:
-                return f"Unable to analyze market for location: {location}. Please verify the location."
+                return f"❌ Unable to analyze market for location: {location}. Google Maps geocoding failed."
                 
         except Exception as e:
             error_msg = str(e)

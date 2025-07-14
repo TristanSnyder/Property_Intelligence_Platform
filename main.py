@@ -687,7 +687,7 @@ async def api_status():
 
 @app.get("/health")
 async def health_check():
-    """Enhanced health check endpoint"""
+    """Enhanced health check endpoint with API key validation"""
     health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -695,8 +695,24 @@ async def health_check():
             "rag_service": "active" if RAG_ENABLED else "inactive",
             "crew_ai": "active" if CREW_ENABLED else "inactive",
             "agent_tracker": "active" if TRACKER_ENABLED else "inactive"
+        },
+        "api_keys": {
+            "google_maps": "✅ present" if os.getenv("GOOGLE_MAPS_API_KEY") else "❌ missing",
+            "census": "✅ present" if os.getenv("CENSUS_API_KEY") else "❌ missing",
+            "weather": "✅ available (no key required)" 
         }
     }
+    
+    # Check if all required API keys are present
+    missing_keys = []
+    if not os.getenv("GOOGLE_MAPS_API_KEY"):
+        missing_keys.append("GOOGLE_MAPS_API_KEY")
+    if not os.getenv("CENSUS_API_KEY"):
+        missing_keys.append("CENSUS_API_KEY")
+    
+    if missing_keys:
+        health_status["status"] = "degraded"
+        health_status["warnings"] = f"Missing required API keys: {', '.join(missing_keys)}"
     
     # Additional health checks
     if RAG_ENABLED and rag_service:

@@ -205,47 +205,4 @@ class OpenStreetMapAPI:
         
         return highlights
     
-    def _get_mock_amenities(self) -> Dict[str, List[Dict]]:
-        """Mock amenities data for fallback"""
-        return {
-            "restaurants": [
-                {"name": "Local Cafe", "type": "cafe", "lat": 0, "lon": 0},
-                {"name": "Pizza Place", "type": "restaurant", "lat": 0, "lon": 0}
-            ],
-            "schools": [
-                {"name": "Elementary School", "type": "school", "lat": 0, "lon": 0}
-            ],
-            "healthcare": [
-                {"name": "Medical Center", "type": "clinic", "lat": 0, "lon": 0}
-            ],
-            "services": [
-                {"name": "Grocery Store", "type": "supermarket", "lat": 0, "lon": 0},
-                {"name": "Bank", "type": "bank", "lat": 0, "lon": 0}
-            ],
-            "transit": [
-                {"name": "Bus Stop", "type": "platform", "lat": 0, "lon": 0}
-            ],
-            "recreation": [
-                {"name": "City Park", "type": "park", "lat": 0, "lon": 0}
-            ]
-        }
-    
-    def _get_mock_location_data(self, address: str) -> Dict[str, Any]:
-        """Mock location data for fallback"""
-        return {
-            "address": address,
-            "coordinates": {"latitude": 40.7128, "longitude": -74.0060},
-            "amenities": self._get_mock_amenities(),
-            "scores": {
-                "walkability": 75,
-                "transit_access": 68,
-                "lifestyle": 82,
-                "overall_location": 75.0
-            },
-            "location_highlights": [
-                "🏡 Established residential neighborhood",
-                "🏫 Good school access",
-                "🍽️ Variety of dining options nearby"
-            ],
-            "data_source": "Mock Data (OpenStreetMap unavailable)"
-        }
+

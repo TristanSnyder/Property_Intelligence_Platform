@@ -26,28 +26,161 @@ class CensusAPI:
     def get_state_code(self, state: str) -> str:
         """Convert state abbreviation to FIPS code"""
         if not state:
-            return "36"  # Default to NY
-        return self.state_codes.get(state.upper(), "36")  # Default to NY if not found
+            raise ValueError("State is required for Census API")
+        state_code = self.state_codes.get(state.upper())
+        if not state_code:
+            raise ValueError(f"Unknown state: {state}")
+        return state_code
     
-    def get_location_demographics(self, address: str, state_code: str) -> Dict[str, Any]:
-        """Get comprehensive demographics with enhanced fallback data"""
+    def get_county_from_geocoding(self, geocode_result: Dict[str, Any]) -> Optional[str]:
+        """Extract county name from Google Maps geocoding result"""
         try:
-            if not self.api_key:
-                raise ValueError("Census API key is required for real data analysis")
+            address_components = geocode_result.get("address_components", {})
             
-            # Try to get census data
-            demographics = self._fetch_census_data(state_code)
+            # Try different possible county field names from Google Maps
+            county_candidates = [
+                address_components.get("administrative_area_level_2"),  # Most common
+                address_components.get("county"),                       # Direct county
+                address_components.get("sublocality_level_1"),         # Sometimes used
+                address_components.get("locality")                     # Fallback
+            ]
             
-            # Clean and enhance the data
-            demographics = self._clean_and_enhance_data(demographics, address, state_code)
+            for county in county_candidates:
+                if county and isinstance(county, str):
+                    # Clean county name (remove "County", "Parish", etc.)
+                    county_clean = county.lower()
+                    county_clean = county_clean.replace(" county", "").replace(" parish", "")
+                    county_clean = county_clean.replace(" borough", "").replace(" census area", "")
+                    return county_clean.strip()
             
-            return demographics
+            return None
             
         except Exception as e:
-            return self._get_enhanced_fallback_data(address, state_code)
+            print(f"Warning: Could not extract county from geocoding: {e}")
+            return None
     
-    def _fetch_census_data(self, state_code: str) -> Dict[str, Any]:
-        """Fetch data from Census API"""
+    def lookup_county_fips(self, state_code: str, county_name: str) -> Optional[str]:
+        """Look up county FIPS code using Census API county lookup"""
+        try:
+            if not self.api_key or not county_name:
+                return None
+            
+            # Use Census API to get all counties for the state
+            counties_url = f"{self.base_url}/2022/acs/acs5"
+            params = {
+                "get": "NAME",
+                "for": "county:*",
+                "in": f"state:{state_code}",
+                "key": self.api_key
+            }
+            
+            response = requests.get(counties_url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if len(data) > 1:  # Header + data rows
+                    # Search for matching county
+                    county_name_lower = county_name.lower()
+                    
+                    for row in data[1:]:  # Skip header
+                        if len(row) >= 3:
+                            county_full_name = row[0].lower()  # Full name like "Prince William County, Virginia"
+                            county_fips = row[2]  # FIPS code
+                            
+                            # Check if our target county name is in the full name
+                            if county_name_lower in county_full_name:
+                                print(f"✅ Found county match: {county_name} -> FIPS {county_fips}")
+                                return county_fips
+            
+            print(f"⚠️ Could not find FIPS code for county: {county_name} in state {state_code}")
+            return None
+            
+        except Exception as e:
+            print(f"Warning: County FIPS lookup failed: {e}")
+            return None
+    
+    def get_location_demographics(self, address: str, state_code: str, geocode_result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Get comprehensive demographics from real Census API data only"""
+        if not self.api_key:
+            raise ValueError("Census API key is required for real data analysis")
+        
+        if not state_code:
+            raise ValueError("State code is required for Census API")
+        
+        # Extract county from geocoding result if provided
+        county_fips = None
+        county_name = None
+        
+        if geocode_result:
+            county_name = self.get_county_from_geocoding(geocode_result)
+            if county_name:
+                county_fips = self.lookup_county_fips(state_code, county_name)
+        
+        # Try county-level data first
+        if county_fips:
+            try:
+                print(f"🎯 Attempting county-level data: {county_name} (FIPS: {county_fips})")
+                demographics = self._fetch_county_census_data(state_code, county_fips)
+                if demographics:
+                    result = self._clean_and_validate_real_data(demographics, address, state_code, "county")
+                    result["county_name"] = county_name
+                    result["county_fips"] = county_fips
+                    return result
+            except Exception as e:
+                print(f"⚠️ County-level data failed: {e}")
+        
+        # Fall back to state-level data
+        print(f"📍 Using state-level data for: {address}")
+        demographics = self._fetch_state_census_data(state_code)
+        
+        if not demographics:
+            raise ValueError(f"No Census data available for state code {state_code}")
+        
+        # Clean and validate the real data
+        return self._clean_and_validate_real_data(demographics, address, state_code, "state")
+    
+    def _fetch_county_census_data(self, state_code: str, county_code: str) -> Dict[str, Any]:
+        """Fetch county-level data from Census API"""
+        try:
+            # American Community Survey 5-Year Data (most recent)
+            acs_url = f"{self.base_url}/2022/acs/acs5"
+            
+            # Variables to fetch
+            variables = [
+                "B01003_001E",  # Total population
+                "B19013_001E",  # Median household income
+                "B25077_001E",  # Median home value
+                "B08303_001E",  # Total commuters (for employment calc)
+                "B15003_022E",  # Bachelor's degree
+                "B15003_023E",  # Master's degree
+                "B15003_024E",  # Professional degree
+                "B15003_025E",  # Doctorate degree
+                "B25064_001E",  # Median rent
+                "B23025_002E",  # Labor force
+                "B23025_005E",  # Unemployed
+            ]
+            
+            params = {
+                "get": ",".join(variables),
+                "for": f"county:{county_code}",
+                "in": f"state:{state_code}",
+                "key": self.api_key
+            }
+            
+            response = requests.get(acs_url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if len(data) > 1:  # Header + data row
+                    return self._parse_census_response(data)
+            
+            raise ValueError(f"County Census API request failed with status {response.status_code}")
+            
+        except Exception as e:
+            raise ValueError(f"County Census API error: {str(e)}")
+    
+    def _fetch_state_census_data(self, state_code: str) -> Dict[str, Any]:
+        """Fetch state-level data from Census API"""
         try:
             # American Community Survey 5-Year Data (most recent)
             acs_url = f"{self.base_url}/2022/acs/acs5"
@@ -80,10 +213,10 @@ class CensusAPI:
                 if len(data) > 1:  # Header + data row
                     return self._parse_census_response(data)
             
-            return {}
+            raise ValueError(f"State Census API request failed with status {response.status_code}")
             
         except Exception as e:
-            return {}
+            raise ValueError(f"State Census API error: {str(e)}")
     
     def _parse_census_response(self, data: List) -> Dict[str, Any]:
         """Parse Census API response"""
@@ -98,118 +231,76 @@ class CensusAPI:
                     value = values[i]
                     if value and value != -666666666:  # Census null value
                         try:
-                            result[header] = float(value) if value != 'null' else None
-                        except:
+                            result[header] = int(value)
+                        except ValueError:
                             result[header] = value
+                    else:
+                        result[header] = None
             
             return result
             
-        except Exception:
-            return {}
-    
-    def _clean_and_enhance_data(self, raw_data: Dict, address: str, state_code: str) -> Dict[str, Any]:
-        """Clean and enhance raw census data"""
+        except Exception as e:
+            raise ValueError(f"Error parsing Census response: {str(e)}")
+
+    def _clean_and_validate_real_data(self, raw_data: Dict, address: str, state_code: str, data_level: str) -> Dict[str, Any]:
+        """Clean and validate real census data - NO FALLBACKS"""
         try:
-            # Extract and clean values
-            population = raw_data.get("B01003_001E", 315041)  # Use real population from your logs
+            # Extract values - require real data
+            population = raw_data.get("B01003_001E")
             median_income = raw_data.get("B19013_001E")
             median_home_value = raw_data.get("B25077_001E") 
             median_rent = raw_data.get("B25064_001E")
-            labor_force = raw_data.get("B23025_002E", 150000)
-            unemployed = raw_data.get("B23025_005E", 7500)
+            labor_force = raw_data.get("B23025_002E")
+            unemployed = raw_data.get("B23025_005E")
             
-            # Calculate employment rate
-            if labor_force and unemployed is not None:
+            # Validate required data is present
+            if not population or population <= 0:
+                raise ValueError(f"Population data not available from Census API ({data_level} level)")
+            
+            if not median_income or median_income <= 0:
+                raise ValueError(f"Median income data not available from Census API ({data_level} level)")
+            
+            if not median_home_value or median_home_value <= 0:
+                raise ValueError(f"Median home value data not available from Census API ({data_level} level)")
+            
+            # Calculate employment rate from real data
+            if labor_force and unemployed is not None and labor_force > 0:
                 employment_rate = round(((labor_force - unemployed) / labor_force) * 100, 1)
             else:
-                employment_rate = 94.5  # NYC average
+                raise ValueError(f"Employment data not available from Census API ({data_level} level)")
             
-            # Education calculations
+            # Education calculations from real data
             bachelors = raw_data.get("B15003_022E", 0) or 0
             masters = raw_data.get("B15003_023E", 0) or 0
             professional = raw_data.get("B15003_024E", 0) or 0
             doctorate = raw_data.get("B15003_025E", 0) or 0
             
             higher_ed_total = bachelors + masters + professional + doctorate
-            education_level = round((higher_ed_total / population) * 100, 1) if population > 0 else 75
+            education_level = round((higher_ed_total / population) * 100, 1) if population > 0 else 0
             
-            # Enhanced fallback for missing financial data
-            if not median_income or median_income <= 0:
-                # Estimate based on location and population
-                if state_code == "36":  # New York
-                    if population > 200000:  # Large urban area
-                        median_income = 68000
-                    else:
-                        median_income = 58000
-                else:
-                    median_income = 55000
-            
-            if not median_home_value or median_home_value <= 0:
-                # Estimate based on location and income
-                if state_code == "36":  # New York
-                    if median_income > 60000:
-                        median_home_value = int(median_income * 8.5)  # High ratio for NYC
-                    else:
-                        median_home_value = int(median_income * 7)
-                else:
-                    median_home_value = int(median_income * 5.5)
-            
+            # Set default rent if not available (this is reasonable since not all areas have rental data)
             if not median_rent or median_rent <= 0:
-                # Estimate as percentage of income
-                median_rent = int(median_income * 0.30 / 12)  # 30% of income annually / 12 months
+                median_rent = int(median_income * 0.30 / 12)  # 30% rule
             
-            # Create comprehensive demographics dictionary
+            # Create demographics dictionary with REAL data only
             demographics = {
-                "population": int(population) if population else 315041,
+                "population": int(population),
                 "median_income": int(median_income),
                 "median_home_value": int(median_home_value),
                 "median_rent": int(median_rent),
                 "employment_rate": employment_rate,
                 "education_level": min(education_level, 100),  # Cap at 100%
-                "income_to_housing_ratio": round(median_home_value / median_income, 1) if median_income > 0 else 8.5,
-                "population_growth": 1.2,  # Estimated based on urban area
-                "income_growth": 2.1,      # Estimated based on economic conditions
-                "industry_diversity": 85,   # High for urban areas like NYC
-                "age_median": 36,          # Typical urban median age
-                "rental_vacancy": 5.5      # Typical urban vacancy rate
+                "income_to_housing_ratio": round(median_home_value / median_income, 1),
+                "population_growth": 1.2,  # Conservative estimate - could be enhanced with time-series data
+                "income_growth": 2.1,      # Conservative estimate - could be enhanced with time-series data
+                "industry_diversity": 85,   # Conservative estimate - could be enhanced with industry data
+                "age_median": 36,          # Could be enhanced with age demographic data
+                "rental_vacancy": 5.5,     # Could be enhanced with housing vacancy data
+                "data_level": data_level,  # Track whether this is county or state level data
+                "data_source": f"US Census Bureau ({data_level} level)"
             }
             
             return demographics
             
         except Exception as e:
-            return self._get_enhanced_fallback_data(address, state_code)
-    
-    def _get_enhanced_fallback_data(self, address: str, state_code: str) -> Dict[str, Any]:
-        """Provide enhanced fallback demographic data"""
-        # Tailor fallback data based on location
-        if state_code == "36":  # New York
-            base_income = 68000
-            base_home_value = 580000
-            base_population = 315041  # Use real population from logs
-        elif state_code in ["06", "11"]:  # CA, DC - High cost areas
-            base_income = 75000
-            base_home_value = 650000
-            base_population = 250000
-        elif state_code in ["48", "12", "04"]:  # TX, FL, AZ - Growing areas
-            base_income = 58000
-            base_home_value = 420000
-            base_population = 180000
-        else:  # Other states
-            base_income = 55000
-            base_home_value = 380000
-            base_population = 150000
-        
-        return {
-            "population": base_population,
-            "median_income": base_income,
-            "median_home_value": base_home_value,
-            "median_rent": int(base_income * 0.28 / 12),  # 28% of income
-            "employment_rate": 94.2,
-            "education_level": 72,
-            "income_to_housing_ratio": round(base_home_value / base_income, 1),
-            "population_growth": 1.8,
-            "income_growth": 2.4,
-            "industry_diversity": 78,
-            "age_median": 35,
-            "rental_vacancy": 6.2
-        }
+            raise ValueError(f"Error processing Census data: {str(e)}")

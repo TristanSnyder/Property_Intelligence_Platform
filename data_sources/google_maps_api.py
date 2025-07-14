@@ -52,12 +52,12 @@ class GoogleMapsAPI:
                         "neighborhood": parsed_address.get("neighborhood", parsed_address.get("sublocality", "Urban Area"))
                     }
                 else:
-                    return self._get_mock_geocoding(address)
+                    raise ValueError(f"Google Maps API returned status: {data['status']}")
             else:
-                return self._get_mock_geocoding(address)
+                raise ValueError(f"Google Maps API request failed with status {response.status_code}")
                 
         except Exception as e:
-            return self._get_mock_geocoding(address)
+            raise ValueError(f"Google Maps API error: {str(e)}")
 
     def get_nearby_places(self, lat: float, lon: float, place_type: str = "establishment", radius: int = 1000) -> List[Dict[str, Any]]:
         """Get nearby places using Google Places API"""
@@ -79,10 +79,10 @@ class GoogleMapsAPI:
                 data = response.json()
                 return data.get("results", [])[:20]  # Limit to 20 results
             else:
-                return self._get_mock_places(place_type)
+                raise ValueError(f"Google Places API request failed with status {response.status_code}")
                 
         except Exception as e:
-            return self._get_mock_places(place_type)
+            raise ValueError(f"Google Places API error: {str(e)}")
 
     def get_area_insights(self, address: str) -> Dict[str, Any]:
         """Get comprehensive area insights including amenities and scores"""
@@ -117,10 +117,10 @@ class GoogleMapsAPI:
                     "amenity_density": "High" if area_score >= 7 else "Moderate" if area_score >= 4 else "Low"
                 }
             else:
-                return self._get_mock_area_insights()
+                raise ValueError("Unable to geocode address for area insights")
                 
         except Exception as e:
-            return self._get_mock_area_insights()
+            raise ValueError(f"Google Maps area insights error: {str(e)}")
 
     def _parse_address_components(self, components: List[Dict]) -> Dict[str, str]:
         """Parse Google Maps address components"""
@@ -175,66 +175,4 @@ class GoogleMapsAPI:
         except Exception:
             return 6  # Default moderate score
 
-    def _get_mock_geocoding(self, address: str) -> Dict[str, Any]:
-        """Provide realistic mock geocoding data"""
-        # Generate realistic NYC coordinates if address contains NYC indicators
-        if any(indicator in address.lower() for indicator in ['ny', 'new york', 'nyc', 'main street']):
-            lat, lon = 40.762363, -73.8313912  # Queens, NY coordinates
-            formatted_address = f"{address.split(',')[0]}, Queens, NY 10001, USA"
-            neighborhood = "Queens"
-        else:
-            lat, lon = 40.7128, -74.0060  # Default NYC coordinates
-            formatted_address = f"{address}, New York, NY 10001, USA"
-            neighborhood = "Manhattan"
-        
-        return {
-            "address": formatted_address,
-            "coordinates": {
-                "latitude": lat,
-                "longitude": lon
-            },
-            "address_components": {
-                "street": address.split(',')[0] if ',' in address else address,
-                "neighborhood": neighborhood,
-                "city": "New York",
-                "state": "NY",
-                "country": "USA",
-                "postal_code": "10001"
-            },
-            "place_id": "mock_place_id",
-            "location_type": "APPROXIMATE",
-            "neighborhood": neighborhood
-        }
 
-    def _get_mock_places(self, place_type: str) -> List[Dict[str, Any]]:
-        """Generate realistic mock places data"""
-        # Generate different counts based on place type
-        if place_type == "restaurant":
-            count = 25  # Urban areas have many restaurants
-        elif place_type == "school":
-            count = 8   # Reasonable number of schools
-        elif place_type == "hospital":
-            count = 4   # Fewer hospitals
-        elif place_type == "shopping_mall":
-            count = 6   # Several shopping areas
-        else:
-            count = 10  # Default
-        
-        return [{"name": f"Mock {place_type} {i}", "place_id": f"mock_id_{i}"} for i in range(count)]
-
-    def _get_mock_area_insights(self) -> Dict[str, Any]:
-        """Generate realistic mock area insights"""
-        return {
-            "area_score": 8,  # Good urban score
-            "restaurants": 25,
-            "schools": 8,
-            "hospitals": 4,
-            "shopping": 6,
-            "nearby_amenities": {
-                "restaurants": 25,
-                "schools": 8,
-                "hospitals": 4,
-                "shopping_centers": 6
-            },
-            "amenity_density": "High"
-        }
