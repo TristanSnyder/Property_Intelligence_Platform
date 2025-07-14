@@ -687,7 +687,7 @@ async def api_status():
 
 @app.get("/health")
 async def health_check():
-    """Enhanced health check endpoint with API key validation"""
+    """Enhanced health check endpoint with API key validation and connectivity testing"""
     health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -700,7 +700,8 @@ async def health_check():
             "google_maps": "✅ present" if os.getenv("GOOGLE_MAPS_API_KEY") else "❌ missing",
             "census": "✅ present" if os.getenv("CENSUS_API_KEY") else "❌ missing",
             "weather": "✅ available (no key required)" 
-        }
+        },
+        "api_connectivity": {}
     }
     
     # Check if all required API keys are present
@@ -714,6 +715,59 @@ async def health_check():
         health_status["status"] = "degraded"
         health_status["warnings"] = f"Missing required API keys: {', '.join(missing_keys)}"
     
+    # Test actual API connectivity
+    test_address = "1600 Pennsylvania Avenue, Washington, DC"
+    
+    # Test Google Maps API
+    if os.getenv("GOOGLE_MAPS_API_KEY"):
+        try:
+            from data_sources.google_maps_api import GoogleMapsAPI
+            google_maps = GoogleMapsAPI()
+            geocode_result = google_maps.geocode_address(test_address)
+            if geocode_result.get("coordinates"):
+                health_status["api_connectivity"]["google_maps"] = "✅ working"
+            else:
+                health_status["api_connectivity"]["google_maps"] = "⚠️ no results"
+        except Exception as e:
+            health_status["api_connectivity"]["google_maps"] = f"❌ error: {str(e)[:100]}"
+            health_status["status"] = "degraded"
+    else:
+        health_status["api_connectivity"]["google_maps"] = "❌ no key"
+    
+    # Test Census API
+    if os.getenv("CENSUS_API_KEY"):
+        try:
+            from data_sources.census_api import CensusAPI
+            census = CensusAPI()
+            # Test basic state lookup
+            state_code = census.get_state_code("Virginia")
+            if state_code:
+                health_status["api_connectivity"]["census"] = "✅ working"
+            else:
+                health_status["api_connectivity"]["census"] = "⚠️ no state code"
+        except Exception as e:
+            health_status["api_connectivity"]["census"] = f"❌ error: {str(e)[:100]}"
+            health_status["status"] = "degraded"
+    else:
+        health_status["api_connectivity"]["census"] = "❌ no key"
+    
+    # Test PropertyResearchTool integration
+    if health_status["api_connectivity"].get("google_maps", "").startswith("✅"):
+        try:
+            from agents.crew_setup import PropertyResearchTool
+            tool = PropertyResearchTool()
+            result = tool._run(test_address)
+            if "❌" not in result:
+                health_status["api_connectivity"]["property_tool"] = "✅ working"
+            else:
+                health_status["api_connectivity"]["property_tool"] = "⚠️ partial failure"
+                health_status["tool_error"] = result[:200] + "..."
+        except Exception as e:
+            health_status["api_connectivity"]["property_tool"] = f"❌ error: {str(e)[:100]}"
+            health_status["status"] = "degraded"
+    else:
+        health_status["api_connectivity"]["property_tool"] = "❌ depends on Google Maps"
+    
     # Additional health checks
     if RAG_ENABLED and rag_service:
         try:
@@ -723,6 +777,148 @@ async def health_check():
             health_status["services"]["rag_service"] = f"error: {str(e)}"
     
     return health_status
+
+@app.get("/debug-address")
+async def debug_address_lookup(address: str = "3650 Dunigan Ct, Catharpin, VA 20143"):
+    """Debug endpoint for testing address lookup with detailed logging"""
+    debug_info = {
+        "address": address,
+        "timestamp": datetime.now().isoformat(),
+        "steps": []
+    }
+    
+    try:
+        # Step 1: Check API keys
+        debug_info["steps"].append({
+            "step": 1,
+            "name": "API Key Check",
+            "google_maps_key": "✅ present" if os.getenv("GOOGLE_MAPS_API_KEY") else "❌ missing",
+            "census_key": "✅ present" if os.getenv("CENSUS_API_KEY") else "❌ missing"
+        })
+        
+        if not os.getenv("GOOGLE_MAPS_API_KEY"):
+            debug_info["error"] = "Google Maps API key is missing"
+            return debug_info
+        
+        # Step 2: Test Google Maps geocoding
+        from data_sources.google_maps_api import GoogleMapsAPI
+        google_maps = GoogleMapsAPI()
+        
+        try:
+            geocode_result = google_maps.geocode_address(address)
+            debug_info["steps"].append({
+                "step": 2,
+                "name": "Google Maps Geocoding",
+                "status": "✅ success",
+                "coordinates": geocode_result.get("coordinates"),
+                "formatted_address": geocode_result.get("address"),
+                "address_components": geocode_result.get("address_components")
+            })
+        except Exception as geocode_error:
+            debug_info["steps"].append({
+                "step": 2,
+                "name": "Google Maps Geocoding",
+                "status": "❌ failed",
+                "error": str(geocode_error)
+            })
+            return debug_info
+        
+        # Step 3: Test state/county extraction
+        components = geocode_result.get("address_components", {})
+        state = components.get("state", "")
+        county = components.get("county", "")
+        
+        debug_info["steps"].append({
+            "step": 3,
+            "name": "State/County Extraction",
+            "state": state,
+            "county": county,
+            "status": "✅ extracted" if state else "⚠️ no state found"
+        })
+        
+        # Step 4: Test Census API if available
+        if os.getenv("CENSUS_API_KEY"):
+            try:
+                from data_sources.census_api import CensusAPI
+                census = CensusAPI()
+                
+                state_code = census.get_state_code(state) if state else ""
+                county_fips = None
+                
+                if county and state_code:
+                    county_fips = census.lookup_county_fips(state_code, county)
+                
+                debug_info["steps"].append({
+                    "step": 4,
+                    "name": "Census API Processing",
+                    "state_code": state_code,
+                    "county_fips": county_fips,
+                    "status": "✅ processed" if state_code else "⚠️ no state code"
+                })
+                
+                # Try to get demographics
+                if state_code:
+                    demographics = census.get_location_demographics(address, state_code, geocode_result)
+                    debug_info["steps"].append({
+                        "step": 5,
+                        "name": "Demographics Retrieval",
+                        "status": "✅ success",
+                        "population": demographics.get("population"),
+                        "median_income": demographics.get("median_income"),
+                        "median_home_value": demographics.get("median_home_value"),
+                        "data_level": demographics.get("data_level", "unknown")
+                    })
+                else:
+                    debug_info["steps"].append({
+                        "step": 5,
+                        "name": "Demographics Retrieval",
+                        "status": "❌ skipped - no state code"
+                    })
+                    
+            except Exception as census_error:
+                debug_info["steps"].append({
+                    "step": 4,
+                    "name": "Census API Processing",
+                    "status": "❌ failed",
+                    "error": str(census_error)
+                })
+        else:
+            debug_info["steps"].append({
+                "step": 4,
+                "name": "Census API Processing",
+                "status": "❌ no API key"
+            })
+        
+        # Step 6: Test PropertyResearchTool
+        try:
+            from agents.crew_setup import PropertyResearchTool
+            tool = PropertyResearchTool()
+            result = tool._run(address)
+            
+            debug_info["steps"].append({
+                "step": 6,
+                "name": "PropertyResearchTool",
+                "status": "✅ success" if "❌" not in result else "⚠️ partial success",
+                "result_length": len(result),
+                "has_errors": "❌" in result,
+                "result_preview": result[:300] + "..." if len(result) > 300 else result
+            })
+            
+        except Exception as tool_error:
+            debug_info["steps"].append({
+                "step": 6,
+                "name": "PropertyResearchTool",
+                "status": "❌ failed",
+                "error": str(tool_error)
+            })
+        
+        debug_info["overall_status"] = "✅ completed"
+        
+    except Exception as e:
+        debug_info["overall_status"] = "❌ failed"
+        debug_info["error"] = str(e)
+    
+    return debug_info
 
 def parse_crew_analysis(crew_result: dict) -> dict:
     """Parse CrewAI analysis text and extract structured data from real API sources"""

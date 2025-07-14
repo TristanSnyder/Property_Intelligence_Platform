@@ -142,6 +142,8 @@ class CensusAPI:
     def _fetch_county_census_data(self, state_code: str, county_code: str) -> Dict[str, Any]:
         """Fetch county-level data from Census API"""
         try:
+            print(f"📊 Fetching county data: State {state_code}, County {county_code}")
+            
             # American Community Survey 5-Year Data (most recent)
             acs_url = f"{self.base_url}/2022/acs/acs5"
             
@@ -167,21 +169,38 @@ class CensusAPI:
                 "key": self.api_key
             }
             
+            print(f"🌐 Making Census API request: {acs_url}")
+            print(f"📋 Parameters: for=county:{county_code}, in=state:{state_code}")
+            
             response = requests.get(acs_url, params=params, timeout=10)
+            
+            print(f"📊 Census API response: Status {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
+                print(f"📊 Census API data received: {len(data)} rows")
                 if len(data) > 1:  # Header + data row
-                    return self._parse_census_response(data)
+                    result = self._parse_census_response(data)
+                    print(f"✅ County data parsed successfully")
+                    return result
+                else:
+                    print(f"⚠️ Census API returned only header row (no data)")
+            
+            print(f"❌ Census API request failed with status {response.status_code}")
+            if response.status_code != 200:
+                print(f"📄 Response content: {response.text[:500]}")
             
             raise ValueError(f"County Census API request failed with status {response.status_code}")
             
         except Exception as e:
+            print(f"❌ County Census API error: {str(e)}")
             raise ValueError(f"County Census API error: {str(e)}")
-    
+
     def _fetch_state_census_data(self, state_code: str) -> Dict[str, Any]:
         """Fetch state-level data from Census API"""
         try:
+            print(f"📊 Fetching state data: State {state_code}")
+            
             # American Community Survey 5-Year Data (most recent)
             acs_url = f"{self.base_url}/2022/acs/acs5"
             
@@ -206,16 +225,31 @@ class CensusAPI:
                 "key": self.api_key
             }
             
+            print(f"🌐 Making Census API request: {acs_url}")
+            print(f"📋 Parameters: for=state:{state_code}")
+            
             response = requests.get(acs_url, params=params, timeout=10)
+            
+            print(f"📊 Census API response: Status {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
+                print(f"📊 Census API data received: {len(data)} rows")
                 if len(data) > 1:  # Header + data row
-                    return self._parse_census_response(data)
+                    result = self._parse_census_response(data)
+                    print(f"✅ State data parsed successfully")
+                    return result
+                else:
+                    print(f"⚠️ Census API returned only header row (no data)")
+            
+            print(f"❌ Census API request failed with status {response.status_code}")
+            if response.status_code != 200:
+                print(f"📄 Response content: {response.text[:500]}")
             
             raise ValueError(f"State Census API request failed with status {response.status_code}")
             
         except Exception as e:
+            print(f"❌ State Census API error: {str(e)}")
             raise ValueError(f"State Census API error: {str(e)}")
     
     def _parse_census_response(self, data: List) -> Dict[str, Any]:
