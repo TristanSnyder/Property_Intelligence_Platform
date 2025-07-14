@@ -168,13 +168,57 @@ col1, col2 = st.columns([3, 2])
 with col1:
     st.markdown("### 🏠 Property Analysis")
     
-    # Property input form
+    # Property input form with structured address fields
     with st.form("property_form"):
-        address = st.text_input(
-            "Property Address",
-            placeholder="123 Main Street, New York, NY 10001",
-            help="Enter the full address for comprehensive analysis"
+        st.markdown("**📍 Property Address Details**")
+        
+        # Row 1: Street Address
+        street_address = st.text_input(
+            "Street Address",
+            placeholder="123 Main Street",
+            help="Enter the street number and street name"
         )
+        
+        # Row 2: City, State, ZIP Code
+        col_city, col_state, col_zip = st.columns([2, 1, 1])
+        
+        with col_city:
+            city = st.text_input(
+                "City",
+                placeholder="New York",
+                help="Enter the city name"
+            )
+        
+        with col_state:
+            state = st.selectbox(
+                "State",
+                options=[
+                    "", "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", 
+                    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", 
+                    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", 
+                    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", 
+                    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC"
+                ],
+                help="Select the state"
+            )
+        
+        with col_zip:
+            zip_code = st.text_input(
+                "ZIP Code",
+                placeholder="10001",
+                max_chars=10,
+                help="Enter the ZIP code"
+            )
+        
+        # Combine address parts
+        address_parts = [street_address, city, state, zip_code]
+        address = ", ".join([part.strip() for part in address_parts if part.strip()])
+        
+        # Show combined address preview
+        if any(address_parts):
+            st.markdown(f"**Preview:** {address if address else 'Enter address details above'}")
+        
+        st.markdown("---")
         
         additional_context = st.text_area(
             "Additional Context (Optional)",
@@ -182,16 +226,28 @@ with col1:
             height=100
         )
         
-        submitted = st.form_submit_button("🚀 Start AI Analysis", type="primary")
+        # Validation
+        address_complete = bool(street_address and city and state and zip_code)
+        
+        submitted = st.form_submit_button(
+            "🚀 Start AI Analysis", 
+            type="primary",
+            disabled=not address_complete,
+            help="Complete all address fields to start analysis" if not address_complete else None
+        )
     
     # Start analysis
-    if submitted and address:
+    if submitted and address_complete:
         try:
-            # Make API call to start analysis
+            # Make API call to start analysis with structured address data
             response = requests.post(
                 f"{api_url}/analyze-property",
                 json={
-                    "address": address,
+                    "street_address": street_address,
+                    "city": city,
+                    "state": state,
+                    "zip_code": zip_code,
+                    "address": address,  # Include combined address for backward compatibility
                     "additional_context": additional_context
                 },
                 timeout=30

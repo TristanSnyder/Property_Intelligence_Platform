@@ -48,9 +48,35 @@ load_dotenv()
 
 # Request/Response Models
 class PropertyAnalysisRequest(BaseModel):
-    address: str
+    # Backward compatibility: single address field
+    address: Optional[str] = None
+    
+    # New structured address fields
+    street_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    
     analysis_type: str = "comprehensive"
     additional_context: Optional[str] = ""
+    
+    def get_formatted_address(self) -> str:
+        """Get the complete address, either from address field or structured fields"""
+        if self.address:
+            return self.address
+        
+        # Build address from structured fields
+        address_parts = []
+        if self.street_address:
+            address_parts.append(self.street_address.strip())
+        if self.city:
+            address_parts.append(self.city.strip())
+        if self.state:
+            address_parts.append(self.state.strip())
+        if self.zip_code:
+            address_parts.append(self.zip_code.strip())
+        
+        return ", ".join(address_parts) if address_parts else ""
 
 class PropertyAnalysisResponse(BaseModel):
     analysis_id: str
@@ -1090,7 +1116,16 @@ async def analyze_property(request: PropertyAnalysisRequest, background_tasks: B
     """API-only property analysis using CrewAI agents and real data sources"""
     analysis_id = str(uuid.uuid4())
     
-    logger.info(f"Starting property analysis for: {request.address}")
+    # Get the formatted address from either single field or structured fields
+    address = request.get_formatted_address()
+    
+    if not address:
+        raise HTTPException(
+            status_code=400,
+            detail="Address is required. Provide either 'address' field or structured address fields (street_address, city, state, zip_code)."
+        )
+    
+    logger.info(f"Starting property analysis for: {address}")
     
     try:
         # Require CrewAI for analysis - no fallback allowed
@@ -1105,16 +1140,16 @@ async def analyze_property(request: PropertyAnalysisRequest, background_tasks: B
         
         # Track the analysis if tracker is available
         if TRACKER_ENABLED and agent_tracker:
-            agent_tracker.start_analysis(analysis_id, request.address)
+            agent_tracker.start_analysis(analysis_id, address)
             # Start the simulation in the background
             background_tasks.add_task(
                 agent_tracker.simulate_property_analysis, 
                 analysis_id, 
-                request.address
+                address
             )
         
         # Run the CrewAI analysis (this will use real data sources)
-        crew_result = await property_analysis_crew.analyze_property(request.address)
+        crew_result = await property_analysis_crew.analyze_property(address)
         
         logger.info(f"CrewAI analysis completed: {crew_result.get('status')}")
         
@@ -1174,7 +1209,7 @@ async def analyze_property(request: PropertyAnalysisRequest, background_tasks: B
         
         return PropertyAnalysisResponse(
             analysis_id=analysis_id,
-            address=request.address,
+            address=address,
             status=crew_result.get("status", "completed"),
             created_at=datetime.now().isoformat(),
             agents_deployed=crew_result.get("agents_executed", ["Property Research Specialist", "Market Analyst", "Risk Assessor", "Report Generator"]),
