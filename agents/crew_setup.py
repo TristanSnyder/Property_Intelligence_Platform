@@ -25,6 +25,35 @@ class PropertyResearchTool(BaseTool):
     description: str = "Fetch comprehensive property data using multiple real data sources"
     args_schema: Type[BaseModel] = PropertyDataInput
 
+    def _get_state_abbreviation(self, state_input: str) -> str:
+        """Convert full state name to 2-letter abbreviation"""
+        if not state_input:
+            return ""
+        
+        # State name to abbreviation mapping
+        state_mapping = {
+            "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
+            "colorado": "CO", "connecticut": "CT", "delaware": "DE", "florida": "FL", "georgia": "GA",
+            "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA",
+            "kansas": "KS", "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+            "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS", "missouri": "MO",
+            "montana": "MT", "nebraska": "NE", "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ",
+            "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND", "ohio": "OH",
+            "oklahoma": "OK", "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+            "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT",
+            "virginia": "VA", "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+            "district of columbia": "DC"
+        }
+        
+        state_clean = state_input.strip().lower()
+        
+        # If already an abbreviation, return as uppercase
+        if len(state_clean) == 2 and state_clean.upper() in ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC"]:
+            return state_clean.upper()
+        
+        # Convert full name to abbreviation
+        return state_mapping.get(state_clean, "")
+
     def _run(self, address: str) -> str:
         """Fetch comprehensive property data using multiple real data sources"""
         try:
@@ -51,7 +80,7 @@ class PropertyResearchTool(BaseTool):
                 # Get location intelligence from OpenStreetMap (optional)
                 try:
                     location_intel = osm.get_location_intelligence(address)
-                    print(f"🚶 OpenStreetMap data retrieved successfully")
+                    print(f"�� OpenStreetMap data retrieved successfully")
                 except Exception as osm_error:
                     # If OpenStreetMap fails, use Google Maps coordinates for basic location data
                     print(f"⚠️ OpenStreetMap unavailable: {osm_error}")
@@ -71,29 +100,57 @@ class PropertyResearchTool(BaseTool):
                 
                 # Get demographics from Census with improved error handling
                 try:
-                    # Extract state information
+                    # Extract state information from geocoding result
                     address_components = geocode_result.get("address_components", {})
-                    state = address_components.get("state", "")
-                    county = address_components.get("county", "")
+                    
+                    # Try multiple sources for state
+                    state = (
+                        address_components.get("administrative_area_level_1") or
+                        address_components.get("state") or
+                        ""
+                    )
+                    
+                    # Try multiple sources for county
+                    county = (
+                        address_components.get("administrative_area_level_2") or
+                        address_components.get("county") or
+                        ""
+                    )
                     
                     print(f"🏛️ State extracted: '{state}'")
                     print(f"🏘️ County extracted: '{county}'")
                     
+                    # If no state found in components, try parsing formatted address
                     if not state:
-                        # Try to extract from formatted address
                         formatted_address = geocode_result.get("address", "")
-                        if ", VA " in formatted_address or formatted_address.endswith(" VA"):
-                            state = "Virginia"
-                            print(f"🔄 State inferred from address: 'Virginia'")
+                        print(f"🔍 Trying to extract state from formatted address: '{formatted_address}'")
+                        
+                        # Look for state patterns in formatted address
+                        import re
+                        state_match = re.search(r',\s*([A-Z]{2})\s+\d{5}', formatted_address)  # ", VA 20143"
+                        if state_match:
+                            state = state_match.group(1)
+                            print(f"🔄 State extracted from address pattern: '{state}'")
+                        elif ", VA " in formatted_address or formatted_address.endswith(" VA"):
+                            state = "VA"
+                            print(f"🔄 State inferred as VA from address")
                     
                     if not state:
                         raise ValueError(f"Unable to determine state from address: {address}")
                     
-                    state_code = census.get_state_code(state) if state else ""
-                    print(f"🔢 State code: '{state_code}'")
+                    # Convert state to abbreviation if needed
+                    state_abbrev = self._get_state_abbreviation(state)
+                    print(f"🔢 State abbreviation: '{state_abbrev}'")
+                    
+                    if not state_abbrev:
+                        raise ValueError(f"Invalid or unknown state: '{state}'")
+                    
+                    # Get state code for Census API
+                    state_code = census.get_state_code(state_abbrev)
+                    print(f"🏛️ Census state code: '{state_code}'")
                     
                     if not state_code:
-                        raise ValueError(f"Invalid state code for state: '{state}'")
+                        raise ValueError(f"Invalid state code for state: '{state_abbrev}'")
                     
                     demographics = census.get_location_demographics(address, state_code, geocode_result)
                     print(f"📊 Demographics retrieved successfully")
