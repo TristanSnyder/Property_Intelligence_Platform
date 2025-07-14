@@ -139,6 +139,10 @@ with st.sidebar:
     auto_refresh = st.checkbox("Enable Auto-refresh", value=True)
     refresh_interval = st.slider("Refresh Interval (seconds)", 1, 10, 3)
     
+    # Demo mode indicator
+    st.markdown("### 🎭 Demo Mode")
+    st.info("💡 Use 'Demo Analysis' button for instant showcase with realistic property data")
+    
     # Health check
     st.markdown("### 🏥 System Health")
     try:
@@ -229,15 +233,68 @@ with col1:
         # Validation
         address_complete = bool(street_address and city and state and zip_code)
         
-        submitted = st.form_submit_button(
-            "🚀 Start AI Analysis", 
-            type="primary",
-            disabled=not address_complete,
-            help="Complete all address fields to start analysis" if not address_complete else None
-        )
+        # Create two columns for buttons
+        col_submit, col_demo = st.columns([2, 1])
+        
+        with col_submit:
+            submitted = st.form_submit_button(
+                "🚀 Start AI Analysis", 
+                type="primary",
+                disabled=not address_complete,
+                help="Complete all address fields to start analysis" if not address_complete else None
+            )
+        
+        with col_demo:
+            demo_submitted = st.form_submit_button(
+                "🎭 Demo Analysis",
+                type="secondary",
+                help="Run analysis with demo property data"
+            )
     
-    # Start analysis
-    if submitted and address_complete:
+    # Demo info box
+    st.info("""
+    🎭 **Demo Mode**: Click 'Demo Analysis' to instantly showcase the platform with realistic property data for:
+    **3650 Dunigan Ct, Catharpin, VA 20143** - A Virginia suburban property with $525K median home value, A- investment grade, and comprehensive market analysis.
+    """)
+    
+    # Demo analysis trigger
+    if demo_submitted:
+        try:
+            # Use demo address
+            demo_address = "3650 Dunigan Ct, Catharpin, VA 20143"
+            st.info(f"🎭 Running demo analysis for: {demo_address}")
+            
+            # Make API call with demo address
+            response = requests.post(
+                f"{api_url}/analyze-property",
+                json={
+                    "street_address": "3650 Dunigan Ct",
+                    "city": "Catharpin", 
+                    "state": "VA",
+                    "zip_code": "20143",
+                    "address": demo_address,
+                    "additional_context": "Demo analysis showcasing AI-powered property intelligence capabilities"
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                st.session_state.analysis_id = result.get("analysis_id")
+                st.session_state.analysis_started = True
+                # Reset previous results
+                st.session_state.results_fetched = False
+                st.session_state.analysis_results = None
+                st.success(f"✅ Demo analysis started! Analysis ID: {st.session_state.analysis_id}")
+                st.balloons()  # Fun demo celebration
+            else:
+                st.error(f"❌ Error starting demo analysis: {response.status_code}")
+                
+        except Exception as e:
+            st.error(f"❌ Demo connection error: {str(e)}")
+    
+    # Start regular analysis
+    elif submitted and address_complete:
         try:
             # Make API call to start analysis with structured address data
             response = requests.post(
@@ -310,13 +367,6 @@ with col2:
     st.metric("Avg Response Time", "2.3 min")
     st.metric("Accuracy Rate", "94.7%")
     
-    # Recent Analysis Summary
-    st.markdown("### 📊 Recent Analysis")
-    st.markdown("**Last 24 Hours:**")
-    st.metric("Properties Analyzed", "156")
-    st.metric("Avg Investment Grade", "B+")
-    st.metric("Success Rate", "91%")
-
                     st.markdown("---")
                 
                 # Check if analysis is complete and auto-fetch results
@@ -355,6 +405,14 @@ with col2:
                 
         except Exception as e:
             st.error(f"❌ Error fetching agent status: {str(e)}")
+
+# Sidebar Stats
+with st.sidebar:
+    st.markdown("### 📊 Recent Analysis")
+    st.markdown("**Last 24 Hours:**")
+    st.metric("Properties Analyzed", "156")
+    st.metric("Avg Investment Grade", "B+") 
+    st.metric("Success Rate", "91%")
 
     # Display Analysis Results - Enhanced with API data
     if st.session_state.get("analysis_results"):
